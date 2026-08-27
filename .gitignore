@@ -1,0 +1,12 @@
+# IATI data samples are downloaded on demand, never committed
+data-samples/
+*.xml
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+CLAUDE.md

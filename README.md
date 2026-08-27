@@ -89,7 +89,8 @@ changing the source, data directory or cache duration.
 | `MCP_IATI_XML_URL` | HTTP(S) URL of a remote XML, used when no local path is configured. | Not set. |
 | `MCP_IATI_SAMPLE` | Name of an `okfn-iati` sample, used when neither a path nor URL is configured. | `iadb-Brazil.xml`. |
 | `MCP_IATI_DATA_DIR` | Directory for downloaded XML files and generated CSV files. | User data directory provided by `platformdirs`. |
-| `MCP_IATI_CACHE_TTL_SECONDS` | Configurable cache duration in seconds; must be greater than zero. | `604800` (7 days). |
+| `MCP_IATI_CACHE_TTL_SECONDS` | Configurable cache duration in seconds; must be greater than zero. | `2592000` (30 days; IATI files are typically updated yearly). |
+| `MCP_IATI_STALE_RETRY_SECONDS` | How long to keep serving a stale CSV cache after a failed refresh before retrying the conversion; must be greater than zero. | `3600` (1 hour). |
 
 Downloaded XML files and converted CSV folders are reused while they remain
 inside this TTL. Once it expires, the XML is downloaded again and the CSVs
@@ -110,7 +111,7 @@ Example:
 ```bash
 export MCP_IATI_XML_URL=https://example.org/iadb-Argentina.xml
 export MCP_IATI_DATA_DIR=/var/cache/mcp-iati
-export MCP_IATI_CACHE_TTL_SECONDS=604800
+export MCP_IATI_CACHE_TTL_SECONDS=2592000
 uv run mcp-server
 ```
 

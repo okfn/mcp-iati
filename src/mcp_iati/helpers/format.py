@@ -146,7 +146,7 @@ def _sources_with_iati_standard(
     return sources
 
 def text_result(
-     text: str,
+    text: str,
     source_url: str | list[str],
     table: list[list[Any]] | None = None,
     tool_name: str | None = None,

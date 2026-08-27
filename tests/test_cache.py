@@ -8,13 +8,14 @@ import pytest
 from mcp_iati.activities import data
 
 
-def _settings(tmp_path, ttl=604800):
+def _settings(tmp_path, ttl=604800, stale_retry=3600):
     return SimpleNamespace(
         xml_path=None,
         xml_url=None,
         sample="iadb-Brazil.xml",
         data_dir=tmp_path,
         cache_ttl_seconds=ttl,
+        stale_retry_seconds=stale_retry,
         ensure_data_dir=lambda: tmp_path,
     )
 
@@ -421,5 +422,60 @@ def test_successful_conversion_removes_backup_and_activates_new_cache(monkeypatc
         assert (result / ".complete").exists()
         assert "csv_folder" in data._cache
         assert data._cache["csv_folder"] == result
+    finally:
+        data._cache.clear()
+
+
+def test_stale_mode_retries_conversion_after_retry_interval(
+    monkeypatch,
+    tmp_path,
+):
+    """A transient failure must not pin stale CSVs until process restart."""
+    source = tmp_path / "source.xml"
+    source.write_text("<iati-activities />")
+    settings = _settings(tmp_path, stale_retry=3600)
+    settings.xml_path = source
+    monkeypatch.setattr(data, "get_settings", lambda: settings)
+
+    stale_folder = tmp_path / "csv" / data._source_cache_key()
+    stale_folder.mkdir(parents=True)
+    _write_required_csvs(stale_folder)
+    marker = stale_folder / ".complete"
+    marker.touch()
+    # The disk cache is expired (that is why the failed refresh left the
+    # process in stale mode in the first place).
+    expired_time = time.time() - settings.cache_ttl_seconds - 1
+    os.utime(marker, (expired_time, expired_time))
+
+    conversion_calls = []
+
+    class Converter:
+        latest_errors = []
+
+        def xml_to_csv_folder(self, path, folder):
+            conversion_calls.append(path)
+            for filename in data.REQUIRED_TOOL_CSVS:
+                (folder / filename).write_text("id\n1\n")
+            return True
+
+    monkeypatch.setattr(data, "IatiMultiCsvConverter", Converter)
+
+    data._cache.clear()
+    data._cache["csv_folder"] = stale_folder
+    data._cache["using_stale_csv"] = True
+
+    try:
+        # Inside the retry interval: stale cache stays pinned, no retry.
+        data._cache["stale_since"] = time.time()
+        assert data._csv_folder() == stale_folder
+        assert conversion_calls == []
+
+        # After the retry interval: the conversion runs again and the
+        # stale flag is cleared.
+        data._cache["stale_since"] = time.time() - 3601
+        result = data._csv_folder()
+        assert conversion_calls == [source]
+        assert "using_stale_csv" not in data._cache
+        assert (result / ".complete").exists()
     finally:
         data._cache.clear()

@@ -1177,14 +1177,12 @@ def transaction_totals_by_year(
         transactions["transaction_type"].isin(allowed_types)
     ].copy()
 
-    transactions["year"] = pd.NA
-    for idx, value in transactions["transaction_date"].items():
-        try:
-            year = pd.to_datetime(value, errors="coerce").year
-        except Exception:
-            year = pd.NA
-        if pd.notna(year):
-            transactions.at[idx, "year"] = int(year)
+    parsed_dates = pd.to_datetime(
+        transactions["transaction_date"],
+        errors="coerce",
+        format="mixed",
+    )
+    transactions["year"] = parsed_dates.dt.year.astype("Int64")
 
     transactions = transactions[pd.notna(transactions["year"])].copy()
 

@@ -32,7 +32,7 @@ def test_default_configuration(monkeypatch):
     assert settings.xml_url is None
     assert settings.sample == DEFAULT_SAMPLE
     assert settings.data_dir == user_data_path(APP_NAME)
-    assert settings.cache_ttl_seconds == 604800
+    assert settings.cache_ttl_seconds == 2592000
     assert settings.cache_ttl_seconds == DEFAULT_CACHE_TTL_SECONDS
 
 

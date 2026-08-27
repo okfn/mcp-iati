@@ -10,7 +10,11 @@ from platformdirs import user_data_path
 
 APP_NAME = "mcp-iati"
 DEFAULT_SAMPLE = "iadb-Brazil.xml"
-DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
+# IATI publications are typically updated yearly (or at most quarterly),
+# so a monthly refresh of the downloaded XML and its derived CSVs is
+# plenty. Override with MCP_IATI_CACHE_TTL_SECONDS for livelier sources.
+DEFAULT_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
+DEFAULT_STALE_RETRY_SECONDS = 60 * 60
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,7 @@ class IatiSettings:
     sample: str
     data_dir: Path
     cache_ttl_seconds: int
+    stale_retry_seconds: int
 
     def ensure_data_dir(self) -> Path:
         """Create and return the configured data directory."""
@@ -29,20 +34,25 @@ class IatiSettings:
         return self.data_dir
 
 
-def _parse_cache_ttl(raw_value: str) -> int:
-    """Parse and validate the configured cache duration."""
+def _parse_positive_seconds(raw_value: str, variable_name: str) -> int:
+    """Parse and validate a duration expressed in whole seconds."""
     try:
         value = int(raw_value)
     except ValueError as error:
         raise ValueError(
-            "MCP_IATI_CACHE_TTL_SECONDS must be an integer."
+            f"{variable_name} must be an integer."
         ) from error
 
     if value <= 0:
         raise ValueError(
-            "MCP_IATI_CACHE_TTL_SECONDS must be greater than zero."
+            f"{variable_name} must be greater than zero."
         )
     return value
+
+
+def _parse_cache_ttl(raw_value: str) -> int:
+    """Parse and validate the configured cache duration."""
+    return _parse_positive_seconds(raw_value, "MCP_IATI_CACHE_TTL_SECONDS")
 
 
 @lru_cache(maxsize=1)
@@ -53,6 +63,10 @@ def get_settings() -> IatiSettings:
     raw_cache_ttl = os.environ.get(
         "MCP_IATI_CACHE_TTL_SECONDS",
         str(DEFAULT_CACHE_TTL_SECONDS),
+    )
+    raw_stale_retry = os.environ.get(
+        "MCP_IATI_STALE_RETRY_SECONDS",
+        str(DEFAULT_STALE_RETRY_SECONDS),
     )
 
     return IatiSettings(
@@ -65,4 +79,8 @@ def get_settings() -> IatiSettings:
             else user_data_path(APP_NAME)
         ),
         cache_ttl_seconds=_parse_cache_ttl(raw_cache_ttl),
+        stale_retry_seconds=_parse_positive_seconds(
+            raw_stale_retry,
+            "MCP_IATI_STALE_RETRY_SECONDS",
+        ),
     )

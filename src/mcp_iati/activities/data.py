@@ -83,7 +83,7 @@ DATAFRAME_SPECS = {
 
 
 TABLE_RELATIONSHIPS = {
-     "transactions.activity_identifier": (
+    "transactions.activity_identifier": (
         "activities.activity_identifier"
     ),
     "sectors.activity_identifier": (
@@ -228,6 +228,15 @@ def _csv_cache_is_fresh(
 def _clear_expired_memory_cache() -> None:
     """Drop in-process data when their disk cache has expired."""
     if _cache.get("using_stale_csv"):
+        # Stale mode pins the last complete cache so tool calls do not
+        # retry an expensive conversion on every request. Retry once per
+        # configured interval instead of never, so a transient failure
+        # does not pin stale data until the process restarts.
+        stale_since = _cache.get("stale_since", 0)
+        retry_after = get_settings().stale_retry_seconds
+        if time.time() - stale_since < retry_after:
+            return
+        _cache.clear()
         return
 
     cached_folder = _cache.get("csv_folder")
@@ -318,6 +327,7 @@ def _csv_folder() -> Path:
                 )
                 _cache["csv_folder"] = cache_dir
                 _cache["using_stale_csv"] = True
+                _cache["stale_since"] = time.time()
                 return cache_dir
 
             raise RuntimeError(
@@ -330,6 +340,7 @@ def _csv_folder() -> Path:
                 shutil.rmtree(tmp_dir)
 
         _cache.pop("using_stale_csv", None)
+        _cache.pop("stale_since", None)
         _cache["csv_folder"] = cache_dir
     return _cache["csv_folder"]
 

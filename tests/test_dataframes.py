@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -162,7 +163,7 @@ def test_stale_fallback_remains_available_in_memory(
     monkeypatch.setattr(
         data_mod,
         "get_settings",
-        lambda: SimpleNamespace(xml_path=None),
+        lambda: SimpleNamespace(xml_path=None, stale_retry_seconds=3600),
     )
 
     activities = pd.DataFrame({"activity_identifier": ["IATI-001"]})
@@ -170,6 +171,7 @@ def test_stale_fallback_remains_available_in_memory(
     data_mod._cache["csv_folder"] = tmp_path
     data_mod._cache["dataframe:activities"] = activities
     data_mod._cache["using_stale_csv"] = True
+    data_mod._cache["stale_since"] = time.time()
 
     data_mod._clear_expired_memory_cache()
 

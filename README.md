@@ -47,12 +47,15 @@ variables below).
 
 ## Where the data comes from
 
-The sample XMLs are real-life data but are **not versioned in this repo**:
-they are downloaded on demand from `data-samples/xml/` in the
-[okfn/okfn_iati](https://github.com/okfn/okfn_iati) repo into the user data
-directory (`~/.local/share/mcp-iati/xml/` on Linux, via `platformdirs`) and
-refreshed when its configured TTL expires. The `.gitignore` excludes any
-`*.xml` just in case.
+The XML files are official IATI publications of the Inter-American
+Development Bank, **not versioned in this repo**: they are downloaded on
+demand from the bank's own hosting at
+[webimages.iadb.org/iati](https://webimages.iadb.org/iati/iadb-Brazil.xml)
+(the same URLs the [IATI registry](https://dashboard.iatistandard.org/publishers/iadb/)
+indexes; the IADB refreshes them monthly) into the user data directory
+(`~/.local/share/mcp-iati/xml/` on Linux, via `platformdirs`) and refreshed
+when the configured TTL expires. The `.gitignore` excludes any `*.xml` just
+in case.
 
 ## How the XML is processed
 
@@ -64,11 +67,11 @@ refreshed when its configured TTL expires. The `.gitignore` excludes any
 2. The tools (`mcp_iati/activities/queries.py`) query those CSVs with
    `pandas`, not the XML - this avoids reparsing a multi-MB file on every
    call.
-3. It uses `iadb-Brazil.xml` by default. To use another sample from the
-   `okfn_iati` repo, a remote URL or a local file, without touching code:
+3. It uses `iadb-Brazil.xml` by default. To use another official IADB
+   country file, a remote URL or a local file, without touching code:
 
    ```bash
-   # another sample from https://github.com/okfn/okfn_iati/tree/main/data-samples/xml
+   # another IADB country file from https://webimages.iadb.org/iati/
    export MCP_IATI_SAMPLE=iadb-Argentina.xml
 
    # or any remote IATI XML
@@ -87,7 +90,7 @@ changing the source, data directory or cache duration.
 | --- | --- | --- |
 | `MCP_IATI_XML_PATH` | Path to a local XML. It has priority and performs no download. | Not set. |
 | `MCP_IATI_XML_URL` | HTTP(S) URL of a remote XML, used when no local path is configured. | Not set. |
-| `MCP_IATI_SAMPLE` | Name of an `okfn-iati` sample, used when neither a path nor URL is configured. | `iadb-Brazil.xml`. |
+| `MCP_IATI_SAMPLE` | Name of an official IADB country file (from https://webimages.iadb.org/iati/), used when neither a path nor URL is configured. | `iadb-Brazil.xml`. |
 | `MCP_IATI_DATA_DIR` | Directory for downloaded XML files and generated CSV files. | User data directory provided by `platformdirs`. |
 | `MCP_IATI_CACHE_TTL_SECONDS` | Configurable cache duration in seconds; must be greater than zero. | `2592000` (30 days; IATI files are typically updated yearly). |
 | `MCP_IATI_STALE_RETRY_SECONDS` | How long to keep serving a stale CSV cache after a failed refresh before retrying the conversion; must be greater than zero. | `3600` (1 hour). |

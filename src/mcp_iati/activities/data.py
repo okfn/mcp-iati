@@ -5,12 +5,13 @@ the default sample - the columns it reads (activity_identifier,
 transaction_type, value, ...) come straight from the IATI standard, produced
 by okfn_iati's `IatiMultiCsvConverter.xml_to_csv_folder()`.
 
-Real-life sample XMLs are NOT stored in this repo: on first use the configured
-sample is downloaded from the okfn_iati GitHub repo
-(https://github.com/okfn/okfn_iati, `data-samples/xml/`) into a per-user data
-directory. Pick a different sample with MCP_IATI_SAMPLE (e.g.
-`iadb-Argentina.xml`), set MCP_IATI_XML_URL for another remote XML, or set
-MCP_IATI_XML_PATH to use a local file with no download at all.
+The XML files are NOT stored in this repo: on first use the configured file
+is downloaded from the IADB's official IATI hosting
+(https://webimages.iadb.org/iati/, the same URLs the IATI registry indexes;
+the bank refreshes them monthly) into a per-user data directory. Pick a
+different country file with MCP_IATI_SAMPLE (e.g. `iadb-Argentina.xml`), set
+MCP_IATI_XML_URL for any other publisher's XML, or set MCP_IATI_XML_PATH to
+use a local file with no download at all.
 """
 import hashlib
 import os
@@ -28,8 +29,9 @@ from okfn_iati import IatiMultiCsvConverter
 
 from mcp_iati.config import get_settings
 
-# Samples live in the okfn_iati repo (a few MB each), downloaded on demand.
-_SAMPLES_BASE_URL = "https://raw.githubusercontent.com/okfn/okfn_iati/main/data-samples/xml"
+# Official IADB IATI files (a few MB each), hosted by the publisher itself
+# and downloaded on demand. These are the URLs the IATI registry indexes.
+_SAMPLES_BASE_URL = "https://webimages.iadb.org/iati"
 _cache: dict = {}
 
 # These CSVs are required for the tools to work; if they are missing, the
@@ -143,7 +145,7 @@ def _download_xml(url: str, filename: str) -> Path:
 
 
 def _download_sample(name: str) -> Path:
-    """Download a named sample from the okfn_iati repository."""
+    """Download a named IADB country file from the bank's IATI hosting."""
     if not name or Path(name).name != name or name in {".", ".."}:
         raise ValueError(
             "MCP_IATI_SAMPLE must be a filename without directory components."

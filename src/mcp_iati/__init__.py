@@ -17,8 +17,8 @@ def _register_iati_tools(mcp):  # noqa: C901
     """IATI - tools over the international aid transparency open data
     standard (https://iatistandard.org/).
 
-    By default it operates on a sample IATI XML (IADB activities in Brazil,
-    see okfn_iati/data-samples/xml/iadb-Brazil.xml), but the tools only use
+    By default it operates on the IADB's official IATI file for Brazil
+    (https://webimages.iadb.org/iati/iadb-Brazil.xml), but the tools only use
     generic IATI standard fields (identifier, status, transaction type) so
     they work just as well with any other IATI XML (configurable via
     MCP_IATI_XML_PATH).

@@ -58,6 +58,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "Which sectors are present in this IATI file?",
             "Which IATI activities belong to the tourism sector?",
             "Which activities have a given organisation as participant?",
+            "Which organisations participate most often in this IATI file?",
             "Show the transactions for activity XI-IATI-IADB-BR-L1231",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
@@ -243,6 +244,36 @@ def _register_iati_tools(mcp):  # noqa: C901
         + tool_glossary_text("list_reporting_organisations")
     )
     mcp.tool()(list_reporting_organisations)
+
+
+    def list_participating_organisations(
+        limit: int = 100,
+    ) -> DataToolOutput:
+        return activities.list_participating_organisations(limit=limit)
+
+    list_participating_organisations.__doc__ = (
+        """List all the organisations participating in activities of the
+        loaded IATI data, ordered by number of activities.
+
+        Use this tool for aggregate questions about participating
+        organisations, such as which organisations appear most often or
+        who funds or implements activities in this file. Use
+        filter_activities_by_participating_org afterwards to see the
+        activities of one organisation.
+
+        Args:
+            limit: Maximum number of organisations to return. Default: 100.
+
+        Returns:
+            A table containing the organisation reference, name, the roles
+            it holds across activities and the number of activities it
+            participates in.
+
+        Relevant IATI terms:
+        """
+        + tool_glossary_text("list_participating_organisations")
+    )
+    mcp.tool()(list_participating_organisations)
 
 
     def list_recipient_countries() -> DataToolOutput:

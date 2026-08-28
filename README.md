@@ -18,6 +18,8 @@ Available tools:
 - `list_activity_statuses()`: list available activity statuses and counts.
 - `list_reporting_organisations()`: list reporting organisations and their
   number of activities.
+- `list_participating_organisations(limit=100)`: list all participating
+  organisations with their roles, ordered by number of activities.
 - `list_recipient_countries()`: list recipient countries and activity counts.
 - `filter_activities_by_country(country, limit=10)`: filter activities by
   recipient-country code or name.

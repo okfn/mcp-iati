@@ -126,6 +126,60 @@ def test_search_activities_matches_participating_org(seed_cache):
     ]
 
 
+def test_list_participating_organisations_orders_by_activities(
+    seed_cache,
+):
+    result = queries.list_participating_organisations()
+    text = _text(result)
+
+    # Both organisations participate in one activity; ties break
+    # alphabetically by name.
+    assert result.structuredContent["table"] == [
+        [
+            "Organisation reference",
+            "Participating organisation",
+            "Roles",
+            "Activities",
+        ],
+        ["ORG-001", "Development Bank", "Funding", 1],
+        ["ORG-010", "Ministry of Transport", "Implementing", 1],
+    ]
+    assert "Found 2 participating organisation(s)" in text
+    assert "ordered by number of activities" in text
+    _assert_data_and_glossary_sources(
+        result,
+        seed_cache.source,
+    )
+
+
+def test_list_participating_organisations_applies_limit(seed_cache):
+    result = queries.list_participating_organisations(limit=1)
+    text = _text(result)
+
+    assert "Total results: 2" in text
+    assert "Records shown: 1" in text
+    assert len(result.structuredContent["table"]) == 2
+
+
+def test_list_participating_organisations_empty_data(seed_cache):
+    data._cache["dataframe:participating_orgs"] = pd.DataFrame(
+        columns=[
+            "activity_identifier",
+            "org_ref",
+            "org_name",
+            "org_type",
+            "role",
+        ]
+    )
+
+    result = queries.list_participating_organisations()
+
+    assert _text(result).startswith(
+        "No participating organisations were found"
+    )
+    assert "table" not in result.structuredContent
+
+
 def test_filter_activities_by_participating_org_matches_ref(seed_cache):
     result = queries.filter_activities_by_participating_org("org-010")
     text = _text(result)

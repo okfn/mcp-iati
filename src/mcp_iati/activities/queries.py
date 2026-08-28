@@ -1205,6 +1205,103 @@ def list_reporting_organisations():
     )
 
 
+def list_participating_organisations(limit: int = 100):
+    """List participating organisations present in the configured IATI data."""
+    tool_name = "list_participating_organisations"
+
+    if limit < 1:
+        return h.empty_result(
+            "The result limit must be greater than zero.",
+            source_url=xml_source(),
+        )
+
+    organisations = participating_orgs_df().copy()
+
+    for column in (
+        "activity_identifier",
+        "org_ref",
+        "org_name",
+        "role",
+    ):
+        organisations[column] = (
+            organisations[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+    organisations["display_name"] = organisations["org_name"].where(
+        organisations["org_name"] != "",
+        organisations["org_ref"],
+    )
+    organisations = organisations[
+        organisations["display_name"] != ""
+    ]
+
+    if organisations.empty:
+        return h.empty_result(
+            "No participating organisations were found in the loaded "
+            "IATI data.",
+            source_url=xml_source(),
+        )
+
+    organisations["role_label"] = organisations["role"].map(
+        h.organisation_role_label
+    )
+
+    grouped = (
+        organisations.groupby(
+            ["org_ref", "display_name"],
+            dropna=False,
+        )
+        .agg(
+            activities=("activity_identifier", "nunique"),
+            roles=(
+                "role_label",
+                lambda labels: ", ".join(
+                    sorted({label for label in labels if label})
+                ),
+            ),
+        )
+        .reset_index()
+        .sort_values(
+            ["activities", "display_name"],
+            ascending=[False, True],
+            kind="mergesort",
+        )
+    )
+
+    total = len(grouped)
+    shown = grouped.head(limit)
+
+    table = h.build_table(
+        shown.to_dict("records"),
+        [
+            ("org_ref", "Organisation reference"),
+            ("display_name", "Participating organisation"),
+            ("roles", "Roles"),
+            ("activities", "Activities"),
+        ],
+    )
+
+    summary = (
+        f"Found {total} participating organisation(s) "
+        f"across {organisations['activity_identifier'].nunique()} "
+        "activities, ordered by number of activities. An organisation "
+        "can hold different roles in different activities."
+    )
+
+    return h.text_result(
+        summary,
+        source_url=xml_source(),
+        table=table,
+        tool_name=tool_name,
+        total=total,
+        shown=len(shown),
+        limit=limit,
+    )
+
+
 def list_recipient_countries():
     """List recipient countries present in the configured IATI data."""
     tool_name = "list_recipient_countries"

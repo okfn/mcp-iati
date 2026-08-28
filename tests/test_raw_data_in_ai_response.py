@@ -97,6 +97,11 @@ DATA_TOOLS = [
         {"organisation": "ORG-010"},
     ),
     (
+        "list_participating_organisations",
+        queries.list_participating_organisations,
+        {},
+    ),
+    (
         "file_overview",
         queries.file_overview,
         {},

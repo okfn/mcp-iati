@@ -293,6 +293,12 @@ TOOL_GLOSSARY_TERMS = {
         "IATI identifier",
         "activity status",
     ),
+    "list_participating_organisations": (
+        "participating organisation",
+        "organisation role",
+        "organisation type",
+        "IATI activity",
+    ),
     "filter_activities_by_participating_org": (
         "participating organisation",
         "organisation role",

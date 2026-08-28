@@ -23,6 +23,7 @@ def test_register_tools_adds_expected_tools(fake_mcp):
         "search_activities",
         "list_activity_statuses",
         "list_reporting_organisations",
+        "list_participating_organisations",
         "list_recipient_countries",
         "filter_activities_by_country",
         "list_sectors",

@@ -31,6 +31,7 @@ def _activities_df():
             {
                 "activity_identifier": "IATI-001",
                 "title": "Sustainable transport programme",
+                "description": "Bus corridors and road safety works",
                 "activity_status": "2",
                 "reporting_org_name": "Development Bank",
                 "reporting_org_ref": "ORG-001",
@@ -41,6 +42,7 @@ def _activities_df():
             {
                 "activity_identifier": "IATI-002",
                 "title": "Health programme",
+                "description": "Rural clinics and prevention services",
                 "activity_status": "3",
                 "reporting_org_name": "",
                 "reporting_org_ref": "ORG-002",

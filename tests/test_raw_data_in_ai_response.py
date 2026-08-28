@@ -87,6 +87,11 @@ DATA_TOOLS = [
         {"text": "programme"},
     ),
     (
+        "filter_activities_by_sector",
+        queries.filter_activities_by_sector,
+        {"sector": "TR"},
+    ),
+    (
         "file_overview",
         queries.file_overview,
         {},

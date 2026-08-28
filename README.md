@@ -27,8 +27,10 @@ Available tools:
   sector code or name (exact code first, then exact name, then name
   substring); on no match, the response lists the sectors available in the
   loaded data.
-- `activity_summary(iati_identifier)`: show the main information and financial
-  totals for one activity.
+- `activity_summary(iati_identifier)`: show the main details of one activity:
+  title, status, description, dates, recipient country, sectors, reporting
+  and participating organisations (with their roles), default
+  classifications and financial totals per transaction type.
 - `activity_transactions(iati_identifier, limit=50)`: list an activity's
   transactions in chronological order.
 - `transaction_totals_by_year(year_from=None, year_to=None)`: group
@@ -132,10 +134,13 @@ uv run mcp-server
 | `activities.csv` | `activity_identifier`, `title`, `activity_status`, `reporting_org_name`, `reporting_org_ref`, `default_currency`, `recipient_country_code`, `recipient_country_name` | `activity_identifier` identifies the activity |
 | `transactions.csv` | `activity_identifier`, `transaction_type`, `transaction_date`, `value`, `currency`, `description` | `activity_identifier` references `activities.csv` |
 | `sectors.csv` | `activity_identifier`, `sector_code`, `sector_name`, `vocabulary`, `percentage` | `activity_identifier` references `activities.csv` |
+| `activity_date.csv` (optional) | `activity_identifier`, `type`, `iso_date` | `activity_identifier` references `activities.csv` |
+| `participating_orgs.csv` (optional) | `activity_identifier`, `org_ref`, `org_name`, `org_type`, `role` | `activity_identifier` references `activities.csv` |
 
-The three CSV files are loaded as shared pandas DataFrames. Repeated tool
+The CSV files are loaded as shared pandas DataFrames. Repeated tool
 calls reuse the same instances and do not download the XML, run the
-conversion or read the CSV files again.
+conversion or read the CSV files again. Optional tables yield an empty
+DataFrame when their CSV is missing, instead of an error.
 
 The data preparation and conversion logic is kept separate from the query
 logic. Additional CSV tables can be added through `DATAFRAME_SPECS`.

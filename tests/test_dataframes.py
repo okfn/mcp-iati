@@ -87,6 +87,46 @@ def test_dataframes_are_loaded_once_and_reused(tmp_path, monkeypatch):
     assert first_transactions.loc[0, "value"] == 1000.0
 
 
+def test_missing_optional_csv_returns_empty_dataframe(tmp_path, monkeypatch):
+    monkeypatch.setattr(data_mod, "_csv_folder", lambda: tmp_path)
+
+    orgs = data_mod.participating_orgs_df()
+
+    assert orgs.empty
+    assert list(orgs.columns) == [
+        "activity_identifier",
+        "org_ref",
+        "org_name",
+        "org_type",
+        "role",
+    ]
+
+
+def test_participating_orgs_csv_is_loaded_when_present(tmp_path, monkeypatch):
+    _write_csv(
+        tmp_path,
+        "participating_orgs.csv",
+        pd.DataFrame(
+            [
+                {
+                    "activity_identifier": "IATI-001",
+                    "org_ref": "ORG-010",
+                    "org_name": "Ministry of Transport",
+                    "org_type": "10",
+                    "role": "4",
+                }
+            ]
+        ),
+    )
+    monkeypatch.setattr(data_mod, "_csv_folder", lambda: tmp_path)
+
+    orgs = data_mod.participating_orgs_df()
+
+    assert len(orgs) == 1
+    assert orgs.loc[0, "org_name"] == "Ministry of Transport"
+    assert orgs.loc[0, "role"] == "4"
+
+
 def test_missing_required_columns_raise_runtime_error(tmp_path, monkeypatch):
     _write_csv(
         tmp_path,

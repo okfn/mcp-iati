@@ -4,11 +4,13 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
 from okfn_iati.enums import (
+    ActivityDateType,
     ActivityStatus,
     AidType,
     CollaborationType,
     FinanceType,
     FlowType,
+    OrganisationRole,
     OrganisationType,
     SectorCategory,
     TiedStatus,
@@ -51,6 +53,14 @@ _STATUS_LABELS = {
 _TRANSACTION_TYPE_LABELS = {
     str(transaction_type.value): transaction_type.name.replace("_", " ").title()
     for transaction_type in TransactionType
+}
+_ORGANISATION_ROLE_LABELS = {
+    str(role.value): role.name.replace("_", " ").title()
+    for role in OrganisationRole
+}
+_ACTIVITY_DATE_TYPE_LABELS = {
+    str(date_type.value): date_type.name.replace("_", " ").lower()
+    for date_type in ActivityDateType
 }
 _CATEGORY_ENUMS = {
     "organisation_type": OrganisationType,
@@ -224,6 +234,18 @@ def transaction_type_label(value: Any) -> str:
     """Return the human-readable label for an IATI transaction type code."""
     key = str(value)
     return _TRANSACTION_TYPE_LABELS.get(key, key)
+
+
+def organisation_role_label(value: Any) -> str:
+    """Return the human-readable label for an IATI organisation role code."""
+    key = str(value).strip()
+    return _ORGANISATION_ROLE_LABELS.get(key, key)
+
+
+def activity_date_type_label(value: Any) -> str:
+    """Return the human-readable label for an IATI activity date type code."""
+    key = str(value).strip()
+    return _ACTIVITY_DATE_TYPE_LABELS.get(key, f"date type {key}")
 
 
 def category_value_label(category: str, value: Any) -> str:

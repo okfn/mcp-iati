@@ -12,6 +12,8 @@ import pandas as pd
 from mcp_iati import helpers as h
 from mcp_iati.activities.data import (
     activities_df,
+    activity_dates_df,
+    participating_orgs_df,
     sectors_df,
     transactions_df,
     xml_source,
@@ -847,9 +849,113 @@ def list_activity_statuses():
     )
 
 
+def _clean_cell(value) -> str:
+    """Return a stripped string for a cell, mapping NaN/None to ""."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    text = str(value).strip()
+    return "" if text.casefold() == "nan" else text
+
+
+def _activity_sector_labels(iati_identifier: str) -> list[str]:
+    """Return display labels for the sectors of one activity."""
+    sectors = _named_sectors(sectors_df())
+    activity_sectors = sectors[
+        sectors["activity_identifier"] == iati_identifier
+    ]
+
+    labels = []
+    for _, sector in activity_sectors.iterrows():
+        name = sector["sector_name"]
+        code = sector["sector_code"]
+        if name and code:
+            label = f"{name} ({code})"
+        else:
+            label = name or code
+        if not label:
+            continue
+        percentage = sector["percentage"]
+        if pd.notna(percentage):
+            label += f", {float(percentage):g}%"
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _activity_date_parts(iati_identifier: str) -> list[str]:
+    """Return date labels from activity-date elements for one activity.
+
+    Fallback for publishers that report dates only as activity-date
+    elements, leaving the activities.csv date columns empty.
+    """
+    dates = activity_dates_df()
+    date_ids = (
+        dates["activity_identifier"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    dates = dates[date_ids == iati_identifier]
+
+    keyed_parts = []
+    for _, date_row in dates.iterrows():
+        iso_date = _clean_cell(date_row.get("iso_date"))
+        if not iso_date:
+            continue
+        type_code = _clean_cell(date_row.get("type"))
+        label = h.activity_date_type_label(type_code)
+        entry = (type_code, f"{label}: {iso_date}")
+        if entry not in keyed_parts:
+            keyed_parts.append(entry)
+    # Codelist order: planned start, actual start, planned end, actual end.
+    return [part for _, part in sorted(keyed_parts)]
+
+
+def _participating_org_lines(iati_identifier: str) -> list[str]:
+    """Return display lines for the participating organisations of one activity."""
+    orgs = participating_orgs_df()
+    org_ids = (
+        orgs["activity_identifier"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    orgs = orgs[org_ids == iati_identifier]
+
+    lines = []
+    for _, org in orgs.iterrows():
+        name = (
+            _clean_cell(org.get("org_name"))
+            or _clean_cell(org.get("org_ref"))
+            or "Unknown organisation"
+        )
+        details = []
+        role = _clean_cell(org.get("role"))
+        if role:
+            details.append(
+                f"role: {h.organisation_role_label(role)}"
+            )
+        org_type = _clean_cell(org.get("org_type"))
+        if org_type:
+            details.append(
+                "type: "
+                + h.category_value_label(
+                    "organisation_type",
+                    org_type,
+                )
+            )
+        line = f"  - {name}"
+        if details:
+            line += f" ({', '.join(details)})"
+        if line not in lines:
+            lines.append(line)
+    return lines
+
+
 def activity_summary(iati_identifier: str):
-    """Return title, status and total committed/disbursed amounts for one IATI activity."""
+    """Return the main details and financial totals for one IATI activity."""
     tool_name = "activity_summary"
+    iati_identifier = str(iati_identifier).strip()
     activities = activities_df()
     activity = activities[activities["activity_identifier"] == iati_identifier]
 
@@ -860,6 +966,10 @@ def activity_summary(iati_identifier: str):
         )
 
     row = activity.iloc[0]
+
+    def field(name: str) -> str:
+        return _clean_cell(row.get(name))
+
     status_label = h.activity_status_label(row["activity_status"])
 
     txns = transactions_df()
@@ -874,6 +984,64 @@ def activity_summary(iati_identifier: str):
         f"Status: {status_label}",
         f"Reporting organisation: {row.get('reporting_org_name') or row.get('reporting_org_ref')}",
     ]
+
+    description = field("description")
+    if description:
+        lines.append(f"Description: {description}")
+
+    recipient = (
+        field("recipient_country_name")
+        or field("recipient_country_code")
+    )
+    if recipient:
+        lines.append(f"Recipient country: {recipient}")
+
+    date_parts = [
+        f"{label}: {field(column)}"
+        for label, column in [
+            ("planned start", "planned_start_date"),
+            ("actual start", "actual_start_date"),
+            ("planned end", "planned_end_date"),
+            ("actual end", "actual_end_date"),
+        ]
+        if field(column)
+    ]
+    if not date_parts:
+        date_parts = _activity_date_parts(iati_identifier)
+    if date_parts:
+        lines.append("Dates: " + "; ".join(date_parts))
+
+    sector_labels = _activity_sector_labels(iati_identifier)
+    if sector_labels:
+        lines.append("Sectors: " + "; ".join(sector_labels))
+
+    # AidType labels only apply to vocabulary 1 (OECD DAC), like in
+    # list_category_values.
+    aid_vocabulary = field("default_aid_type_vocabulary")
+    classification_parts = []
+    for label, column, category in [
+        ("Collaboration type", "collaboration_type", "collaboration_type"),
+        ("Default flow type", "default_flow_type", "flow_type"),
+        ("Default finance type", "default_finance_type", "finance_type"),
+        ("Default aid type", "default_aid_type", "aid_type"),
+        ("Default tied status", "default_tied_status", "tied_status"),
+    ]:
+        value = field(column)
+        if not value:
+            continue
+        if category == "aid_type" and aid_vocabulary not in ("", "1"):
+            display = value
+        else:
+            display = h.category_value_label(category, value)
+        classification_parts.append(f"{label}: {display}")
+    if classification_parts:
+        lines.append("; ".join(classification_parts))
+
+    org_lines = _participating_org_lines(iati_identifier)
+    if org_lines:
+        lines.append("Participating organisations:")
+        lines.extend(org_lines)
+
     table = [["Transaction type", "Total", "Currency"]]
     for code, total in totals.items():
         table.append([h.transaction_type_label(code), h.format_amount(total), currency])

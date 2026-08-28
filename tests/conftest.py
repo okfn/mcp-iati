@@ -97,12 +97,21 @@ def seed_cache(monkeypatch):
     data_mod._cache["dataframe:activities"] = _activities_df()
     data_mod._cache["dataframe:transactions"] = _transactions_df()
     data_mod._cache["dataframe:sectors"] = _sectors_df()
+    data_mod._cache["dataframe:participating_orgs"] = (
+        _participating_orgs_df()
+    )
+    data_mod._cache["dataframe:activity_dates"] = (
+        _activity_dates_df()
+    )
 
     yield SimpleNamespace(
         source=FAKE_XML,
         activities=data_mod._cache["dataframe:activities"],
         transactions=data_mod._cache["dataframe:transactions"],
         sectors=data_mod._cache["dataframe:sectors"],
+        participating_orgs=(
+            data_mod._cache["dataframe:participating_orgs"]
+        ),
     )
 
     data_mod._cache.clear()
@@ -136,6 +145,44 @@ def fake_mcp(monkeypatch, tmp_path):
         lambda: tmp_path,
     )
     return FakeMCP()
+
+
+def _participating_orgs_df():
+    return pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "org_ref": "ORG-010",
+                "org_name": "Ministry of Transport",
+                "org_type": "10",
+                "role": "4",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "org_ref": "ORG-001",
+                "org_name": "Development Bank",
+                "org_type": "40",
+                "role": "1",
+            },
+        ]
+    )
+
+
+def _activity_dates_df():
+    return pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "type": "2",
+                "iso_date": "2024-01-15",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "type": "1",
+                "iso_date": "2024-01-01",
+            },
+        ]
+    )
 
 
 def _sectors_df():

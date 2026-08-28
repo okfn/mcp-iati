@@ -296,7 +296,11 @@ TOOL_GLOSSARY_TERMS = {
     "activity_summary": (
         "IATI identifier",
         "reporting organisation",
+        "participating organisation",
+        "organisation role",
         "activity status",
+        "activity date",
+        "sector",
         "transaction",
         "commitment",
         "disbursement",

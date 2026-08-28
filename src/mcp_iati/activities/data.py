@@ -81,6 +81,32 @@ DATAFRAME_SPECS = {
         ),
         "numeric_columns": ("percentage",),
     },
+    # Optional: activity-date elements land here (some publishers report
+    # dates only this way, leaving the activities.csv date columns empty).
+    "activity_dates": {
+        "filename": "activity_date.csv",
+        "required_columns": (
+            "activity_identifier",
+            "type",
+            "iso_date",
+        ),
+        "numeric_columns": (),
+        "optional": True,
+    },
+    # Optional: participating-org elements are not guaranteed in every IATI
+    # file, so a missing CSV yields an empty table instead of an error.
+    "participating_orgs": {
+        "filename": "participating_orgs.csv",
+        "required_columns": (
+            "activity_identifier",
+            "org_ref",
+            "org_name",
+            "org_type",
+            "role",
+        ),
+        "numeric_columns": (),
+        "optional": True,
+    },
 }
 
 
@@ -396,6 +422,12 @@ def _dataframe(table_name: str) -> pd.DataFrame:
         return _cache[cache_key]
 
     csv_path = _csv_folder() / spec["filename"]
+    if spec.get("optional") and not csv_path.is_file():
+        dataframe = pd.DataFrame(
+            columns=list(spec["required_columns"])
+        )
+        _cache[cache_key] = dataframe
+        return dataframe
     dataframe = pd.read_csv(csv_path, dtype=str)
 
     missing_columns = [
@@ -433,3 +465,13 @@ def transactions_df() -> pd.DataFrame:
 def sectors_df() -> pd.DataFrame:
     """Return the shared sectors DataFrame."""
     return _dataframe("sectors")
+
+
+def participating_orgs_df() -> pd.DataFrame:
+    """Return the shared participating organisations DataFrame."""
+    return _dataframe("participating_orgs")
+
+
+def activity_dates_df() -> pd.DataFrame:
+    """Return the shared activity dates DataFrame."""
+    return _dataframe("activity_dates")

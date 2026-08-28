@@ -268,6 +268,62 @@ def test_activity_summary_preserves_details_totals_and_currency(seed_cache):
     assert "Applied limit:" not in text
 
 
+def test_activity_summary_includes_extended_details(seed_cache):
+    result = queries.activity_summary("IATI-001")
+    text = _text(result)
+
+    assert (
+        "Description: Bus corridors and road safety works" in text
+    )
+    assert "Recipient country: Argentina" in text
+    assert "Sectors: Transport (TR), 100%" in text
+    assert "Participating organisations:" in text
+    assert (
+        "Ministry of Transport (role: Implementing, type: Government)"
+        in text
+    )
+    assert (
+        "Development Bank (role: Funding, type: Multilateral)"
+        in text
+    )
+    # Dates come from the activity-date elements (the synthetic
+    # activities have no date columns), in codelist order.
+    assert (
+        "Dates: planned start: 2024-01-01; actual start: 2024-01-15"
+        in text
+    )
+
+
+def test_activity_summary_omits_empty_detail_sections(seed_cache):
+    result = queries.activity_summary("IATI-002")
+    text = _text(result)
+
+    # IATI-002 has no participating organisations or dates in the
+    # synthetic data; those sections must not appear at all.
+    assert "Participating organisations:" not in text
+    assert "Dates:" not in text
+    assert "Description: Rural clinics and prevention services" in text
+    assert "Sectors: Basic health care (12220), 100%" in text
+
+
+def test_activity_summary_tolerates_missing_optional_data(seed_cache):
+    data._cache["dataframe:participating_orgs"] = pd.DataFrame(
+        columns=[
+            "activity_identifier",
+            "org_ref",
+            "org_name",
+            "org_type",
+            "role",
+        ]
+    )
+
+    result = queries.activity_summary("IATI-001")
+    text = _text(result)
+
+    assert "Sustainable transport programme (IATI-001)" in text
+    assert "Participating organisations:" not in text
+
+
 def test_activity_summary_falls_back_to_org_ref(seed_cache):
     result = queries.activity_summary("IATI-002")
 

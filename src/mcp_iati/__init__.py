@@ -46,6 +46,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "What aid types are present in this IATI file?",
             "What date range does this IATI file cover?",
             "Give me a summary of activity XI-IATI-IADB-BR-L1231",
+            "Which organisations participate in activity XI-IATI-IADB-BR-L1231?",
             "What does it mean for an activity to be in implementation?",
             "What is a policy marker?",
             "How much was committed and how much was disbursed in this activity?",
@@ -355,8 +356,14 @@ def _register_iati_tools(mcp):  # noqa: C901
         return activities.activity_summary(iati_identifier)
 
     activity_summary.__doc__ = (
-        """Return the title, status, reporting organisation and totals per
-        transaction type of an IATI activity.
+        """Return the main details of an IATI activity: title, status,
+        description, dates, recipient country, sectors, reporting and
+        participating organisations (with their roles), default
+        classifications and totals per transaction type.
+
+        Use this tool for questions about one specific activity, such as
+        who participates in it, what it is about or how much was committed
+        and disbursed.
 
         Args:
             iati_identifier: IATI identifier, for example "XI-IATI-IADB-BR-L1231".

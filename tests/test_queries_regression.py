@@ -28,19 +28,21 @@ def test_search_activities_preserves_table_and_source(seed_cache):
     text = _text(result)
 
     assert text.startswith(
-        "Found 1 IATI activity(ies) matching 'transport'."
+        "Found 1 IATI activity(ies) matching 'transport' "
+        "in their title, description or sectors."
     )
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert "Applied filters: title_contains=transport" in text
+    assert "Applied filters: text_contains=transport" in text
     assert "Applied limit: 10" in text
 
     assert result.structuredContent["table"] == [
-        ["IATI identifier", "Title", "Status"],
+        ["IATI identifier", "Title", "Status", "Matched in"],
         [
             "IATI-001",
             "Sustainable transport programme",
             "Implementation",
+            "title, sector (Transport)",
         ],
     ]
     _assert_data_and_glossary_sources(
@@ -50,15 +52,162 @@ def test_search_activities_preserves_table_and_source(seed_cache):
 
 
 def test_search_activities_reports_total_and_applied_limit(seed_cache):
-    result = queries.search_activities("t", limit=1)
+    result = queries.search_activities("programme", limit=1)
     text = _text(result)
 
-    assert "Found 2 IATI activity(ies) matching 't'." in text
+    assert "Found 2 IATI activity(ies) matching 'programme'" in text
     assert "Total results: 2" in text
     assert "Records shown: 1" in text
-    assert "Applied filters: title_contains=t" in text
+    assert "Applied filters: text_contains=programme" in text
     assert "Applied limit: 1" in text
     assert len(result.structuredContent["table"]) == 2
+
+
+def test_search_activities_matches_description(seed_cache):
+    result = queries.search_activities("rural")
+
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Matched in"],
+        [
+            "IATI-002",
+            "Health programme",
+            "Completion",
+            "description",
+        ],
+    ]
+
+
+def test_search_activities_matches_sector_name(seed_cache):
+    result = queries.search_activities("basic")
+
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Matched in"],
+        [
+            "IATI-002",
+            "Health programme",
+            "Completion",
+            "sector (Basic health care)",
+        ],
+    ]
+
+
+def test_search_activities_works_without_description_column(seed_cache):
+    data._cache["dataframe:activities"] = (
+        seed_cache.activities.drop(columns=["description"])
+    )
+
+    result = queries.search_activities("rural")
+    assert _text(result).startswith("No IATI activities found")
+
+    result = queries.search_activities("transport")
+    assert "IATI-001" in _text(result)
+
+
+def test_search_activities_rejects_empty_text(seed_cache):
+    result = queries.search_activities("   ")
+
+    assert _text(result) == "A search text is required."
+    assert "table" not in result.structuredContent
+
+
+def test_filter_activities_by_sector_matches_exact_code(seed_cache):
+    result = queries.filter_activities_by_sector("12220")
+    text = _text(result)
+
+    assert text.startswith(
+        "Found 1 IATI activity(ies) for sector '12220'."
+    )
+    assert "Applied filters: sector=12220" in text
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Sector"],
+        [
+            "IATI-002",
+            "Health programme",
+            "Completion",
+            "Basic health care (12220)",
+        ],
+    ]
+    _assert_data_and_glossary_sources(
+        result,
+        seed_cache.source,
+    )
+
+
+def test_filter_activities_by_sector_matches_name_case_insensitive(
+    seed_cache,
+):
+    result = queries.filter_activities_by_sector("transport")
+
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Sector"],
+        [
+            "IATI-001",
+            "Sustainable transport programme",
+            "Implementation",
+            "Transport (TR)",
+        ],
+    ]
+
+
+def test_filter_activities_by_sector_matches_name_substring(seed_cache):
+    result = queries.filter_activities_by_sector("health")
+
+    assert "IATI-002" in _text(result)
+    assert "Basic health care (12220)" in _text(result)
+
+
+def test_filter_activities_by_sector_lists_available_on_no_match(
+    seed_cache,
+):
+    result = queries.filter_activities_by_sector("banana")
+
+    text = _text(result)
+    assert "No sector matches 'banana'." in text
+    assert "Available sectors:" in text
+    assert "Basic health care" in text
+    assert "Transport" in text
+    assert "table" not in result.structuredContent
+
+
+def test_filter_activities_by_sector_rejects_empty_sector(seed_cache):
+    result = queries.filter_activities_by_sector("  ")
+
+    assert _text(result) == "A sector code or name is required."
+    assert "table" not in result.structuredContent
+
+
+def test_filter_activities_by_sector_fills_missing_dac_names(seed_cache):
+    data._cache["dataframe:sectors"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "33210",
+                "sector_name": None,
+                "vocabulary": "1",
+                "percentage": 100.0,
+            },
+        ]
+    )
+
+    result = queries.filter_activities_by_sector("tourism")
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Sector"],
+        [
+            "IATI-001",
+            "Sustainable transport programme",
+            "Implementation",
+            "Tourism policy and administrative management (33210)",
+        ],
+    ]
+
+    listed = queries.list_sectors()
+    assert (
+        "Tourism policy and administrative management"
+        in _text(listed)
+    )
+
+    searched = queries.search_activities("tourism")
+    assert "sector (Tourism policy" in _text(searched)
 
 
 def test_search_activities_rejects_invalid_limit(seed_cache):
@@ -78,7 +227,8 @@ def test_search_activities_preserves_empty_response(seed_cache):
     result = queries.search_activities("nonexistent")
 
     assert _text(result).startswith(
-        "No IATI activities found with 'nonexistent' in the title."
+        "No IATI activities found with 'nonexistent' in their "
+        "title, description or sectors."
     )
     assert "=== Relevant IATI terms ===" not in _text(result)
     assert "table" not in result.structuredContent

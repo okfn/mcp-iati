@@ -32,6 +32,37 @@ def _transaction_type_code(value: str) -> str | None:
     return _TRANSACTION_TYPE_FILTERS.get(str(value).strip().casefold())
 
 
+def _named_sectors(sectors: pd.DataFrame) -> pd.DataFrame:
+    """Normalize sector columns and fill missing DAC sector names.
+
+    Publishers using the OECD DAC vocabulary (vocabulary 1) often omit the
+    sector name because the code is enough; the standard name is restored
+    from the DAC codelist so name-based search and display keep working.
+    """
+    sectors = sectors.copy()
+    for column in (
+        "activity_identifier",
+        "sector_code",
+        "sector_name",
+        "vocabulary",
+    ):
+        sectors[column] = (
+            sectors[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+    missing_name = (
+        (sectors["sector_name"] == "")
+        & (sectors["vocabulary"] == "1")
+    )
+    sectors.loc[missing_name, "sector_name"] = sectors.loc[
+        missing_name,
+        "sector_code",
+    ].map(h.dac_sector_name)
+    return sectors
+
+
 def file_overview():
     """Return a general overview of the configured IATI data."""
     tool_name = "file_overview"
@@ -455,7 +486,7 @@ def list_category_values(
         },
         "sector": {
             "label": "Sector",
-            "dataframe": sectors_df,
+            "dataframe": lambda: _named_sectors(sectors_df()),
             "column": "sector_code",
             "value_column": "sector_name",
             "vocabulary_column": "vocabulary",
@@ -644,8 +675,16 @@ def list_category_values(
 
 
 def search_activities(text: str, limit: int = 10):
-    """Search IATI activities by a substring of their title."""
+    """Search IATI activities by text in their title, description or sectors."""
     tool_name = "search_activities"
+
+    search_text = str(text).strip()
+
+    if not search_text:
+        return h.empty_result(
+            "A search text is required.",
+            source_url=xml_source(),
+        )
 
     if limit <= 0:
         return h.empty_result(
@@ -653,10 +692,58 @@ def search_activities(text: str, limit: int = 10):
             source_url=xml_source(),
         )
 
-    df = activities_df()
-    all_matches = df[
-        df["title"].str.contains(text, case=False, na=False)
-    ]
+    def _contains(series: pd.Series) -> pd.Series:
+        return (
+            series.fillna("")
+            .astype(str)
+            .str.contains(search_text, case=False, regex=False)
+        )
+
+    activities = (
+        activities_df()
+        .drop_duplicates(subset=["activity_identifier"])
+        .copy()
+    )
+
+    title_match = _contains(activities["title"])
+
+    # The description column is optional: okfn_iati emits it for IATI 2.x
+    # files, but tools must keep working with any activities CSV.
+    if "description" in activities.columns:
+        description_match = _contains(activities["description"])
+    else:
+        description_match = pd.Series(False, index=activities.index)
+
+    sectors = _named_sectors(sectors_df())
+    sector_hits = sectors[_contains(sectors["sector_name"])]
+    sector_names = (
+        sector_hits.groupby("activity_identifier")["sector_name"]
+        .apply(
+            lambda names: ", ".join(
+                sorted({name for name in names if name})
+            )
+        )
+        .to_dict()
+    )
+
+    matched_in = []
+    for title_hit, description_hit, identifier in zip(
+        title_match,
+        description_match,
+        activities["activity_identifier"],
+    ):
+        fields = []
+        if title_hit:
+            fields.append("title")
+        if description_hit:
+            fields.append("description")
+        matched_sectors = sector_names.get(identifier)
+        if matched_sectors:
+            fields.append(f"sector ({matched_sectors})")
+        matched_in.append(", ".join(fields))
+    activities["matched_in"] = matched_in
+
+    all_matches = activities[activities["matched_in"] != ""]
 
     total = len(all_matches)
     matches = all_matches.head(limit)
@@ -664,12 +751,18 @@ def search_activities(text: str, limit: int = 10):
 
     if matches.empty:
         return h.empty_result(
-            f"No IATI activities found with '{text}' in the title.",
+            f"No IATI activities found with '{search_text}' in their "
+            "title, description or sectors.",
             source_url=xml_source(),
         )
 
     rows = matches[
-        ["activity_identifier", "title", "activity_status"]
+        [
+            "activity_identifier",
+            "title",
+            "activity_status",
+            "matched_in",
+        ]
     ].copy()
 
     table = h.build_table(
@@ -678,6 +771,7 @@ def search_activities(text: str, limit: int = 10):
             ("activity_identifier", "IATI identifier"),
             ("title", "Title"),
             ("activity_status", "Status"),
+            ("matched_in", "Matched in"),
         ],
         formatters={
             "activity_status": h.activity_status_label,
@@ -685,7 +779,8 @@ def search_activities(text: str, limit: int = 10):
     )
 
     summary = (
-        f"Found {total} IATI activity(ies) matching '{text}'."
+        f"Found {total} IATI activity(ies) matching '{search_text}' "
+        "in their title, description or sectors."
     )
 
     return h.text_result(
@@ -695,7 +790,7 @@ def search_activities(text: str, limit: int = 10):
         tool_name=tool_name,
         total=total,
         shown=shown,
-        filters={"title_contains": text},
+        filters={"text_contains": search_text},
         limit=limit,
     )
 
@@ -1062,19 +1157,7 @@ def list_sectors(limit: int = 100):
             source_url=xml_source(),
         )
 
-    sectors = sectors_df().copy()
-
-    for column in (
-        "sector_code",
-        "sector_name",
-        "vocabulary",
-    ):
-        sectors[column] = (
-            sectors[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+    sectors = _named_sectors(sectors_df())
 
     sectors["display_name"] = sectors["sector_name"].where(
         sectors["sector_name"] != "",
@@ -1131,6 +1214,161 @@ def list_sectors(limit: int = 100):
         tool_name=tool_name,
         total=total,
         shown=len(shown),
+        limit=limit,
+    )
+
+
+def filter_activities_by_sector(
+    sector: str,
+    limit: int = 10,
+):
+    """Filter IATI activities by sector code or name.
+
+    Exact code matches win, then exact names, then a case-insensitive
+    substring of the name. When nothing matches, the response lists the
+    sectors available in the loaded data.
+    """
+    tool_name = "filter_activities_by_sector"
+    selected = str(sector).strip()
+
+    if not selected:
+        return h.empty_result(
+            "A sector code or name is required.",
+            source_url=xml_source(),
+        )
+
+    if limit < 1:
+        return h.empty_result(
+            "The result limit must be greater than zero.",
+            source_url=xml_source(),
+        )
+
+    sectors = _named_sectors(sectors_df())
+    sectors = sectors[
+        (sectors["sector_code"] != "")
+        | (sectors["sector_name"] != "")
+    ]
+
+    if sectors.empty:
+        return h.empty_result(
+            "No sectors were found in the loaded IATI data.",
+            source_url=xml_source(),
+        )
+
+    needle = selected.casefold()
+    codes = sectors["sector_code"].str.casefold()
+    names = sectors["sector_name"].str.casefold()
+
+    matches = sectors[codes == needle]
+    if matches.empty:
+        matches = sectors[names == needle]
+    if matches.empty:
+        matches = sectors[
+            names.str.contains(needle, regex=False)
+        ]
+
+    if matches.empty:
+        available = sorted({
+            name or code
+            for name, code in zip(
+                sectors["sector_name"],
+                sectors["sector_code"],
+            )
+        })
+        preview = "; ".join(available[:30])
+        suffix = "; ..." if len(available) > 30 else ""
+        return h.empty_result(
+            f"No sector matches '{selected}'. Available sectors: "
+            f"{preview}{suffix}",
+            source_url=xml_source(),
+        )
+
+    matched = matches.copy()
+    matched["sector_display"] = matched["sector_name"].where(
+        matched["sector_name"] != "",
+        matched["sector_code"],
+    )
+    has_both = (
+        (matched["sector_code"] != "")
+        & (matched["sector_name"] != "")
+    )
+    matched.loc[has_both, "sector_display"] = (
+        matched.loc[has_both, "sector_name"]
+        + " ("
+        + matched.loc[has_both, "sector_code"]
+        + ")"
+    )
+
+    sectors_by_activity = (
+        matched.groupby("activity_identifier")["sector_display"]
+        .apply(
+            lambda values: ", ".join(sorted(set(values)))
+        )
+    )
+
+    activities = (
+        activities_df()
+        .drop_duplicates(subset=["activity_identifier"])
+        .copy()
+    )
+    activity_ids = (
+        activities["activity_identifier"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    activities["matched_sectors"] = activity_ids.map(
+        sectors_by_activity
+    )
+
+    all_matches = activities[
+        activities["matched_sectors"].notna()
+    ]
+    total = len(all_matches)
+
+    if all_matches.empty:
+        return h.empty_result(
+            f"No IATI activities were found for sector '{selected}'.",
+            source_url=xml_source(),
+        )
+
+    shown = all_matches.head(limit)
+
+    rows = shown[
+        [
+            "activity_identifier",
+            "title",
+            "activity_status",
+            "matched_sectors",
+        ]
+    ].fillna("")
+
+    table = h.build_table(
+        rows.to_dict("records"),
+        [
+            ("activity_identifier", "IATI identifier"),
+            ("title", "Title"),
+            ("activity_status", "Status"),
+            ("matched_sectors", "Sector"),
+        ],
+        formatters={
+            "activity_status": h.activity_status_label,
+        },
+    )
+
+    summary = (
+        f"Found {total} IATI activity(ies) for sector "
+        f"'{selected}'."
+    )
+
+    return h.text_result(
+        summary,
+        source_url=xml_source(),
+        table=table,
+        tool_name=tool_name,
+        total=total,
+        shown=len(shown),
+        filters={"sector": selected},
         limit=limit,
     )
 
@@ -1850,7 +2088,10 @@ def transaction_totals_by_sector(
             source_url=xml_source(),
         )
 
-    sectors = _sector_allocations(sectors_df(), vocabulary=vocabulary)
+    sectors = _sector_allocations(
+        _named_sectors(sectors_df()),
+        vocabulary=vocabulary,
+    )
     transaction_activity_ids = set(
         transactions["activity_identifier"]
         .dropna()

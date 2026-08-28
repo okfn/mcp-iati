@@ -26,6 +26,7 @@ def test_register_tools_adds_expected_tools(fake_mcp):
         "list_recipient_countries",
         "filter_activities_by_country",
         "list_sectors",
+        "filter_activities_by_sector",
         "activity_summary",
         "activity_transactions",
         "transaction_totals_by_year",

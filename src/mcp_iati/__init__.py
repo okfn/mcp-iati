@@ -55,6 +55,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "Which recipient countries are present in this IATI file?",
             "Which IATI activities have Brazil as their recipient country?",
             "Which sectors are present in this IATI file?",
+            "Which IATI activities belong to the tourism sector?",
             "Show the transactions for activity XI-IATI-IADB-BR-L1231",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
@@ -173,17 +174,23 @@ def _register_iati_tools(mcp):  # noqa: C901
         return activities.search_activities(text, limit=limit)
 
     search_activities.__doc__ = (
-        """Search IATI activities whose title contains the given text.
+        """Search IATI activities whose title, description or sector names
+        contain the given text.
 
-        Useful as a first step to discover an activity's IATI identifier,
-        before requesting its summary with activity_summary.
+        Use this tool for topic or keyword questions, such as activities
+        about tourism, education or water, and as a first step to discover
+        an activity's IATI identifier before requesting its summary with
+        activity_summary.
 
         Args:
-            text: Substring to search for in the title (case-insensitive).
+            text: Substring to search for in the title, description and
+                sector names (case-insensitive).
             limit: Maximum number of results to return. Default: 10.
 
         Returns:
-            A table with the IATI identifier, title and status of each match.
+            A table with the IATI identifier, title and status of each
+            match, plus the fields where the text was found (including the
+            matching sector names).
 
         Relevant IATI terms:
         """
@@ -306,6 +313,42 @@ def _register_iati_tools(mcp):  # noqa: C901
         + tool_glossary_text("list_sectors")
     )
     mcp.tool()(list_sectors)
+
+
+    def filter_activities_by_sector(
+        sector: str,
+        limit: int = 10,
+    ) -> DataToolOutput:
+        return activities.filter_activities_by_sector(
+            sector,
+            limit=limit,
+        )
+
+    filter_activities_by_sector.__doc__ = (
+        """Filter IATI activities by sector.
+
+        The sector may be provided as a code (a 5-digit OECD DAC purpose
+        code such as "33210", or a publisher-specific code) or as a sector
+        name. Exact code matches win, then exact names, then a
+        case-insensitive substring of the name. Prefer this tool over
+        search_activities when the question is about a sector.
+
+        Use list_sectors first when the available sectors are unknown; when
+        no sector matches, the response lists the available sectors.
+
+        Args:
+            sector: Sector code or name.
+            limit: Maximum number of activities to return. Default: 10.
+
+        Returns:
+            A table containing matching activity identifiers, titles,
+            statuses and the matched sector names.
+
+        Relevant IATI terms:
+        """
+        + tool_glossary_text("filter_activities_by_sector")
+    )
+    mcp.tool()(filter_activities_by_sector)
 
 
     def activity_summary(iati_identifier: str) -> DataToolOutput:

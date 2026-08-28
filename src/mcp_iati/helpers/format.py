@@ -10,6 +10,7 @@ from okfn_iati.enums import (
     FinanceType,
     FlowType,
     OrganisationType,
+    SectorCategory,
     TiedStatus,
     TransactionType,
 )
@@ -64,6 +65,11 @@ _HUMANITARIAN_LABELS = {
     "1": "Yes",
     "false": "No",
     "true": "Yes",
+}
+# OECD DAC 5-digit purpose codes (sector vocabulary 1): member name is the
+# code, member value is the standard name.
+_DAC_SECTOR_NAMES = {
+    member.name: member.value for member in SectorCategory
 }
 
 
@@ -244,6 +250,11 @@ def category_value_label(category: str, value: Any) -> str:
         return key
 
     return member.name.replace("_", " ").title()
+
+
+def dac_sector_name(code: Any) -> str:
+    """Return the OECD DAC purpose-code name, or "" for unknown codes."""
+    return _DAC_SECTOR_NAMES.get(str(code).strip(), "")
 
 
 def format_amount(value: Any) -> str:

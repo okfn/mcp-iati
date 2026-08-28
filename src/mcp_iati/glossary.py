@@ -286,6 +286,13 @@ TOOL_GLOSSARY_TERMS = {
         "vocabulary",
         "IATI activity",
     ),
+    "filter_activities_by_sector": (
+        "sector",
+        "vocabulary",
+        "IATI activity",
+        "IATI identifier",
+        "activity status",
+    ),
     "activity_summary": (
         "IATI identifier",
         "reporting organisation",

@@ -11,8 +11,9 @@
 # Structure mirrors the gateway's en.yaml / es.yaml / pt.yaml. Anything not
 # listed here keeps the gateway's bundled value. HTML is allowed.
 #
-# This plugin is English-only; the other locales only get the brand name,
-# which is not translated, and keep the gateway's generic copy otherwise.
+# The plugin's own content (tool descriptions, sample questions, answers)
+# is English-only; the gateway shell is translated per locale, so the
+# es/pt blocks carry the same copy in those languages.
 
 en:
   nav:
@@ -27,7 +28,19 @@ en:
 es:
   nav:
     brand: IATI Chat
+  landing:
+    title: Preguntale a los datos IATI
+    tagline: 'Respuestas basadas en actividades y transacciones publicadas bajo el estandar IATI de cooperacion para el desarrollo. Cada respuesta sale de una herramienta sobre los datos publicados, nunca del conocimiento propio del modelo.'
+    placeholder: Pregunta sobre actividades, organizaciones, sectores o transacciones IATI...
+    footer:
+      tech: 'Construido con el servidor MCP de OKFN y el plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicaciones oficiales <a href="https://iatistandard.org/">IATI</a> (ver las <a href="#" id="landing-footer-tools">fuentes de datos</a> abajo).'
 
 pt:
   nav:
     brand: IATI Chat
+  landing:
+    title: Pergunte aos dados IATI
+    tagline: 'Respostas fundamentadas em atividades e transacoes publicadas sob o padrao IATI de cooperacao para o desenvolvimento. Cada resposta vem de uma ferramenta sobre os dados publicados, nunca do conhecimento proprio do modelo.'
+    placeholder: Pergunte sobre atividades, organizacoes, setores ou transacoes IATI...
+    footer:
+      tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicacoes oficiais <a href="https://iatistandard.org/">IATI</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'

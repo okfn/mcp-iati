@@ -24,6 +24,15 @@ dev = [
 [project.entry-points."mcp_server"]
 mcp-iati = "mcp_iati:register_tools"
 
+# Read by mcp-server at startup (repo.py) and attached to every tool as
+# `_meta.plugin_metadata.urls`; the chat gateway renders one badge per URL
+# on the plugin card and in the tools drawer.
+[project.urls]
+Homepage = "https://github.com/okfn/mcp-iati"
+Repository = "https://github.com/okfn/mcp-iati"
+Issues = "https://github.com/okfn/mcp-iati/issues"
+Standard = "https://iatistandard.org/"
+
 [build-system]
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"

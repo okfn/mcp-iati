@@ -169,6 +169,26 @@ uv run mcp-server
 
 The tools become available with the `mcp_iati_` prefix.
 
+## Chat gateway branding
+
+The plugin describes itself to MCP clients through the standard channels
+of `mcp-server`: `set_plugin_info(description, instructions,
+sample_questions)` in `src/mcp_iati/__init__.py` (plugin card, sample
+question chips and the system prompt) and `[project.urls]` in
+`pyproject.toml` (link badges on the card and in the tools drawer).
+
+The shell of the chat gateway (site title, hero, tagline, footer) is not
+plugin-aware; it uses generic copy unless a `static/i18n/overrides.yaml`
+is present. `deploy/gateway-overrides.yaml` in this repo is that file with
+IATI terms. To use it locally:
+
+```bash
+cp deploy/gateway-overrides.yaml ../mcp-chat-gateway/static/i18n/overrides.yaml
+```
+
+The deployment image fetches the same file from this repository, so
+editing it here is enough to change the deployed site.
+
 ## IATI glossary
 
 The tool descriptions and the plugin instructions share a central glossary

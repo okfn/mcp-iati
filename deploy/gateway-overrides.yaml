@@ -1,0 +1,33 @@
+# Chat gateway strings for an IATI deployment.
+#
+# The chat gateway (okfn/mcp-chat-gateway) ships generic copy ("Open Data
+# Chat", "Ask the open data", ...). It reads an optional
+# static/i18n/overrides.yaml at page load and merges it on top of the
+# bundled locale files, so a deployment can rebrand without forking the
+# gateway. This file is that overrides.yaml for an IATI server: copy it to
+# <gateway>/static/i18n/overrides.yaml (the deployment Dockerfile does it
+# from this repo's URL).
+#
+# Structure mirrors the gateway's en.yaml / es.yaml / pt.yaml. Anything not
+# listed here keeps the gateway's bundled value. HTML is allowed.
+#
+# This plugin is English-only; the other locales only get the brand name,
+# which is not translated, and keep the gateway's generic copy otherwise.
+
+en:
+  nav:
+    brand: IATI Chat
+  landing:
+    title: Ask the IATI data
+    tagline: 'Answers grounded in activities and transactions published under the IATI standard for development cooperation. Every reply comes from a tool call over the published data, never from the model''s own knowledge.'
+    placeholder: Ask about IATI activities, organisations, sectors or transactions...
+    footer:
+      tech: 'Powered by the OKFN MCP server and the <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> plugin over official <a href="https://iatistandard.org/">IATI</a> publications (see the <a href="#" id="landing-footer-tools">data sources</a> below).'
+
+es:
+  nav:
+    brand: IATI Chat
+
+pt:
+  nav:
+    brand: IATI Chat

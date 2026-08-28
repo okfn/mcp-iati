@@ -32,9 +32,14 @@ Available tools:
   loaded data.
 - `filter_activities_by_participating_org(organisation, limit=10)`: filter
   activities by participating organisation reference or name (exact
-  reference first, then exact name, then name substring), reporting each
-  organisation's role; on no match, the response lists the organisations
-  available in the loaded data.
+  reference first, then exact name, then a fallback combining name
+  substrings with closely similar names, to cope with misspelled published
+  names), reporting each organisation's role and which match kind applied;
+  on no match, the response lists the organisations available in the
+  loaded data.
+
+Text matching in the search and filter tools ignores case and accents,
+while responses always show the names exactly as published.
 - `activity_summary(iati_identifier)`: show the main details of one activity:
   title, status, description, dates, recipient country, sectors, reporting
   and participating organisations (with their roles), default

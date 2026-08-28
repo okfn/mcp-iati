@@ -230,6 +230,83 @@ def test_filter_activities_by_participating_org_matches_name_substring(
     ]
 
 
+def test_filter_activities_by_participating_org_ignores_accents(
+    seed_cache,
+):
+    data._cache["dataframe:participating_orgs"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "org_ref": "BR-ES",
+                "org_name": "ESTADO DO ESPIRITO SANTO",
+                "org_type": "10",
+                "role": "2",
+            },
+        ]
+    )
+
+    result = queries.filter_activities_by_participating_org(
+        "Estado do Espírito Santo"
+    )
+    text = _text(result)
+
+    assert "IATI-001" in text
+    assert "Matched by exact name" in text
+
+
+def test_filter_activities_by_participating_org_matches_similar_name(
+    seed_cache,
+):
+    # The published name is misspelled ("ESPIRITU"); a query with the
+    # correct spelling still finds it through the similarity fallback.
+    data._cache["dataframe:participating_orgs"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "org_ref": "BR-ESPIRITUS",
+                "org_name": "ESTADO DO ESPIRITU SANTO",
+                "org_type": "10",
+                "role": "2",
+            },
+        ]
+    )
+
+    result = queries.filter_activities_by_participating_org(
+        "ESTADO DO ESPÍRITO SANTO"
+    )
+    text = _text(result)
+
+    assert "IATI-001" in text
+    assert "Matched by name substring or similar name" in text
+    assert "ESTADO DO ESPIRITU SANTO" in text
+
+
+def test_filter_activities_by_sector_ignores_accents(seed_cache):
+    data._cache["dataframe:sectors"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-002",
+                "sector_code": "ED",
+                "sector_name": "Educação básica",
+                "vocabulary": "99",
+                "percentage": 100.0,
+            },
+        ]
+    )
+
+    result = queries.filter_activities_by_sector("educacao basica")
+    text = _text(result)
+
+    assert "IATI-002" in text
+    assert "Matched by exact name" in text
+
+
+def test_search_activities_ignores_accents(seed_cache):
+    result = queries.search_activities("prográmme")
+
+    assert "Total results: 2" in _text(result)
+
+
 def test_filter_activities_by_participating_org_lists_available(
     seed_cache,
 ):

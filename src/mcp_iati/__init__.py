@@ -190,7 +190,7 @@ def _register_iati_tools(mcp):  # noqa: C901
         Args:
             text: Substring to search for in the title, description,
                 sector names and participating organisation names
-                (case-insensitive).
+                (case- and accent-insensitive).
             limit: Maximum number of results to return. Default: 10.
 
         Returns:
@@ -365,9 +365,9 @@ def _register_iati_tools(mcp):  # noqa: C901
 
         The sector may be provided as a code (a 5-digit OECD DAC purpose
         code such as "33210", or a publisher-specific code) or as a sector
-        name. Exact code matches win, then exact names, then a
-        case-insensitive substring of the name. Prefer this tool over
-        search_activities when the question is about a sector.
+        name. Exact code matches win, then exact names, then a substring
+        of the name; matching ignores case and accents. Prefer this tool
+        over search_activities when the question is about a sector.
 
         Use list_sectors first when the available sectors are unknown; when
         no sector matches, the response lists the available sectors.
@@ -400,8 +400,11 @@ def _register_iati_tools(mcp):  # noqa: C901
         """Filter IATI activities by participating organisation.
 
         The organisation may be provided as an IATI organisation reference
-        or as a name. Exact reference matches win, then exact names, then a
-        case-insensitive substring of the name. Prefer this tool over
+        or as a name, preferably exactly as published (see
+        list_participating_organisations). Exact reference matches win,
+        then exact names, then a fallback combining name substrings with
+        closely similar names; matching ignores case and accents, and the
+        response reports which of these matched. Prefer this tool over
         search_activities when the question is about who participates in,
         funds or implements activities.
 

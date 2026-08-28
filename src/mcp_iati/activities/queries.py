@@ -7,6 +7,9 @@ just the bundled sample - see data.py.
 Each query passes `xml_source()` as the source; the raw table data is
 embedded into the AI-facing text by `h.text_result` (see helpers/format.py).
 """
+import difflib
+import unicodedata
+
 import pandas as pd
 
 from mcp_iati import helpers as h
@@ -32,6 +35,30 @@ _TRANSACTION_TYPE_FILTERS = {
 def _transaction_type_code(value: str) -> str | None:
     """Normalize a supported analytical transaction-type filter."""
     return _TRANSACTION_TYPE_FILTERS.get(str(value).strip().casefold())
+
+
+def _fold_text(value) -> str:
+    """Casefold and strip diacritics for accent-insensitive matching.
+
+    Published IATI names are inconsistent about accents (and chat models
+    tend to restore them when quoting names back), so matching ignores
+    them while responses keep the names exactly as published.
+    """
+    normalized = unicodedata.normalize("NFKD", str(value))
+    return "".join(
+        char
+        for char in normalized
+        if not unicodedata.combining(char)
+    ).casefold()
+
+
+def _folded(series: pd.Series) -> pd.Series:
+    """Return a Series folded with `_fold_text` for matching."""
+    return (
+        series.fillna("")
+        .astype(str)
+        .map(_fold_text)
+    )
 
 
 def _named_sectors(sectors: pd.DataFrame) -> pd.DataFrame:
@@ -708,12 +735,10 @@ def search_activities(text: str, limit: int = 10):
             source_url=xml_source(),
         )
 
+    needle = _fold_text(search_text)
+
     def _contains(series: pd.Series) -> pd.Series:
-        return (
-            series.fillna("")
-            .astype(str)
-            .str.contains(search_text, case=False, regex=False)
-        )
+        return _folded(series).str.contains(needle, regex=False)
 
     activities = (
         activities_df()
@@ -1288,7 +1313,9 @@ def list_participating_organisations(limit: int = 100):
         f"Found {total} participating organisation(s) "
         f"across {organisations['activity_identifier'].nunique()} "
         "activities, ordered by number of activities. An organisation "
-        "can hold different roles in different activities."
+        "can hold different roles in different activities. When "
+        "filtering with filter_activities_by_participating_org, use the "
+        "reference or the name exactly as published in this table."
     )
 
     return h.text_result(
@@ -1412,17 +1439,13 @@ def filter_activities_by_country(
         .str.strip()
         .str.upper()
     )
-    country_names = (
-        activities["recipient_country_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.casefold()
+    country_names = _folded(
+        activities["recipient_country_name"].fillna("").astype(str).str.strip()
     )
 
     matches = activities[
         (country_codes == country.upper())
-        | (country_names == country.casefold())
+        | (country_names == _fold_text(country))
     ].drop_duplicates(subset=["activity_identifier"])
 
     total = len(matches)
@@ -1584,17 +1607,20 @@ def filter_activities_by_sector(
             source_url=xml_source(),
         )
 
-    needle = selected.casefold()
-    codes = sectors["sector_code"].str.casefold()
-    names = sectors["sector_name"].str.casefold()
+    needle = _fold_text(selected)
+    codes = _folded(sectors["sector_code"])
+    names = _folded(sectors["sector_name"])
 
     matches = sectors[codes == needle]
+    match_kind = "exact code"
     if matches.empty:
         matches = sectors[names == needle]
+        match_kind = "exact name"
     if matches.empty:
         matches = sectors[
             names.str.contains(needle, regex=False)
         ]
+        match_kind = "name substring"
 
     if matches.empty:
         available = sorted({
@@ -1687,7 +1713,7 @@ def filter_activities_by_sector(
 
     summary = (
         f"Found {total} IATI activity(ies) for sector "
-        f"'{selected}'."
+        f"'{selected}'. Matched by {match_kind}."
     )
 
     return h.text_result(
@@ -1751,17 +1777,31 @@ def filter_activities_by_participating_org(
             source_url=xml_source(),
         )
 
-    needle = selected.casefold()
-    refs = orgs["org_ref"].str.casefold()
-    names = orgs["org_name"].str.casefold()
+    needle = _fold_text(selected)
+    refs = _folded(orgs["org_ref"])
+    names = _folded(orgs["org_name"])
 
     matches = orgs[refs == needle]
+    match_kind = "exact reference"
     if matches.empty:
         matches = orgs[names == needle]
+        match_kind = "exact name"
     if matches.empty:
+        # Published names are often misspelled (missing letters, wrong
+        # vowels), so the fallback combines substring containment with
+        # close-match similarity on full names; substring alone would
+        # shadow the intended organisation with a longer-named one.
+        substring_hits = names.str.contains(needle, regex=False)
+        close_names = difflib.get_close_matches(
+            needle,
+            names.unique().tolist(),
+            n=5,
+            cutoff=0.85,
+        )
         matches = orgs[
-            names.str.contains(needle, regex=False)
+            substring_hits | names.isin(close_names)
         ]
+        match_kind = "name substring or similar name"
 
     if matches.empty:
         available = sorted({
@@ -1854,7 +1894,8 @@ def filter_activities_by_participating_org(
 
     summary = (
         f"Found {total} IATI activity(ies) with participating "
-        f"organisation '{selected}'."
+        f"organisation '{selected}'. Matched by {match_kind}; the "
+        "matched organisation names, as published, are in the table."
     )
 
     return h.text_result(

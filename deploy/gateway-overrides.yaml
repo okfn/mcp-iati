@@ -20,7 +20,7 @@ en:
     brand: IATI Chat
   landing:
     title: Ask the IATI data
-    tagline: 'Answers grounded in activities and transactions published under the IATI standard for development cooperation. Every reply comes from a tool call over the published data, never from the model''s own knowledge.'
+    tagline: 'Answers built only from official data in public IATI files: activities and transactions published under the IATI standard for development cooperation. Every reply comes from a tool call over those files, never from the model''s own knowledge.'
     placeholder: Ask about IATI activities, organisations, sectors or transactions...
     footer:
       tech: 'Powered by the OKFN MCP server and the <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> plugin over official <a href="https://iatistandard.org/">IATI</a> publications (see the <a href="#" id="landing-footer-tools">data sources</a> below).'
@@ -30,7 +30,7 @@ es:
     brand: IATI Chat
   landing:
     title: Preguntale a los datos IATI
-    tagline: 'Respuestas basadas en actividades y transacciones publicadas bajo el estandar IATI de cooperacion para el desarrollo. Cada respuesta sale de una herramienta sobre los datos publicados, nunca del conocimiento propio del modelo.'
+    tagline: 'Respuestas construidas solo con datos oficiales de archivos publicos IATI: actividades y transacciones publicadas bajo el estandar IATI de cooperacion para el desarrollo. Cada respuesta sale de una herramienta sobre esos archivos, nunca del conocimiento propio del modelo.'
     placeholder: Pregunta sobre actividades, organizaciones, sectores o transacciones IATI...
     footer:
       tech: 'Construido con el servidor MCP de OKFN y el plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicaciones oficiales <a href="https://iatistandard.org/">IATI</a> (ver las <a href="#" id="landing-footer-tools">fuentes de datos</a> abajo).'
@@ -40,7 +40,7 @@ pt:
     brand: IATI Chat
   landing:
     title: Pergunte aos dados IATI
-    tagline: 'Respostas fundamentadas em atividades e transacoes publicadas sob o padrao IATI de cooperacao para o desenvolvimento. Cada resposta vem de uma ferramenta sobre os dados publicados, nunca do conhecimento proprio do modelo.'
+    tagline: 'Respostas construidas apenas com dados oficiais de arquivos publicos IATI: atividades e transacoes publicadas sob o padrao IATI de cooperacao para o desenvolvimento. Cada resposta vem de uma ferramenta sobre esses arquivos, nunca do conhecimento proprio do modelo.'
     placeholder: Pergunte sobre atividades, organizacoes, setores ou transacoes IATI...
     footer:
       tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicacoes oficiais <a href="https://iatistandard.org/">IATI</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'

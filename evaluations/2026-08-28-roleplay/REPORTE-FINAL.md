@@ -301,19 +301,145 @@ generan; es cargar la tabla en `data.py` y escribir la tool.
 30. okfn_iati: conservar todas las `category` de document-link; exportar
     version/generated-datetime a un CSV de metadatos.
 
-## 5. Orden sugerido de issues
+## 5. Agenda de trabajo (checklist, por impacto y relevancia)
 
-1. (A1, A2, A4, D19-D21) results + documents + summary completo + reglas de
-   prompt: elimina la mayoria de las respuestas "mala" y todas las
-   negaciones falsas.
-2. (B8, B9, B13) list_activities + commitment_vs_disbursement + TOTAL en
-   tablas: elimina los rankings a mano.
-3. (B10, B11, B12, B15) cruces y estadisticas + data_quality_report.
-4. (A3, A5, A6, A7) transacciones con partes, locations, budgets,
-   contactos, metadatos.
-5. (C16-C18) busqueda multilingue y por estado; codelists.
-6. (E25-E28) CSV, charts, cabecera de fuente, progreso.
-7. (F29-F30) feedback externo.
+Orden de ejecucion. Cada item es una tarea concreta en mcp-iati salvo que
+se indique gateway, mcp-server u okfn_iati. Se marca `[x]` al terminar.
+
+### Bloque 1 - Que el chat deje de negar datos que existen (impacto maximo)
+
+- [ ] 1.1 Prompt (`set_plugin_info.instructions`): regla "si ninguna tool
+      expone X, decir 'las herramientas no exponen X'; nunca 'el archivo /
+      IATI no contiene X'". Agregar lista de bloques presentes en el
+      archivo pero no expuestos, para que el modelo lo sepa.
+- [ ] 1.2 Prompt: prohibir afirmaciones de ausencia ("no hay negativos",
+      "los unicos", "ninguna tiene") sin una tool que cubra el 100%; si se
+      muestrearon N actividades, decir "de las N consultadas".
+- [ ] 1.3 Prompt: prohibir aritmetica manual cuando la tool devuelve
+      totales; nunca contradecir una tool con calculo propio; no repetir
+      cifras ya corregidas en resumenes; copiar cifras completas.
+- [ ] 1.4 Prompt: no inferir clasificaciones desde titulos o IDs; no
+      filtrar razonamiento interno; no cambiar de idioma; sin emojis.
+- [ ] 1.5 Cargar en `data.py` las tablas que okfn_iati ya genera:
+      results, indicators, indicator_periods, documents, locations,
+      budgets, contact_info, conditions, descriptions (todas opcionales).
+- [ ] 1.6 Tool `activity_results(iati_identifier)`: results, indicadores,
+      periodos con target/actual, unidad, measure.
+- [ ] 1.7 Tool `activity_documents(iati_identifier)`: titulo, categoria,
+      formato, idioma, URL (incluir todas las `category`).
+- [ ] 1.8 `activity_summary` completo: todas las narrativas de titulo y
+      descripcion por idioma (nunca dejar solo "EN"), org_ref de cada
+      participante, last-updated, linked-data-uri (URL oficial del
+      proyecto), conteo de documentos / results / locations / budgets,
+      saldo sin desembolsar, y aviso "registro preliminar" cuando no hay
+      transacciones ni fechas.
+- [ ] 1.9 `activity_transactions`: agregar provider-org, receiver-org,
+      value-date, ref y descripcion de cada transaccion.
+
+### Bloque 2 - Identidad y version del archivo
+
+- [ ] 2.1 Tool `file_metadata()`: URL fuente, version IATI,
+      generated-datetime, fecha de descarga, rango de last-updated,
+      conteo de actividades, hash; incluirlo en `file_overview`.
+- [ ] 2.2 `file_overview`: listar que bloques del estandar estan y cuales
+      NO estan en el archivo (policy-marker, humanitarian, related-activity,
+      planned-disbursement, sector percentage, loan-terms, baseline).
+- [ ] 2.3 Aviso al arrancar / en `file_metadata` cuando el remoto cambio
+      (Last-Modified o generated-datetime) respecto al cache.
+- [ ] 2.4 Tool `file_changelog()`: actividades agregadas / retiradas entre
+      el snapshot anterior y el actual (conservar el snapshot previo).
+- [ ] 2.5 Gateway: cabecera o pie con identidad del archivo (URL,
+      generated-datetime) y cita sugerida.
+
+### Bloque 3 - Agregaciones que hoy el modelo hace a mano
+
+- [ ] 3.1 Fila TOTAL y conteo en toda tabla agregada
+      (`transaction_totals_by_*`, `top_activities_by_amount`); pasar
+      `total` en structuredContent.
+- [ ] 3.2 Tool `list_activities(filters)`: id, titulo, status, sector,
+      accountable / implementing, compromiso, desembolso, saldo, fechas;
+      filtros por sector, status, org, texto, rango de fechas; sin tope
+      de 100.
+- [ ] 3.3 Tool `commitment_vs_disbursement(status=None, order)`: por
+      actividad con brecha, ratio, dias hasta primer desembolso.
+- [ ] 3.4 Filtros `activity`, `org`, `sector`, `status` en
+      `transaction_totals_by_year`; tool
+      `transaction_totals_by_sector_and_year`.
+- [ ] 3.5 Tool generica `transaction_totals_by_category(field)` para
+      activity_status, finance_type, flow_type, aid_type, participating
+      org con rol, provider-org, receiver-org.
+- [ ] 3.6 Tool `transaction_stats()`: conteo, suma, promedio, mediana,
+      min, max por tipo de transaccion; y `list_transactions(sign,
+      min_value, max_value, year, type, activity)`.
+- [ ] 3.7 Tool `activity_dates_table()`: planned vs actual, duracion,
+      retraso, por actividad y agregado.
+- [ ] 3.8 Quitar el tope de 100 en `list_participating_organisations` y
+      separar por rol (oculta cofinanciadores como GCF, IFAD, CTF).
+- [ ] 3.9 `transaction_totals_by_country` debe devolver tambien
+      desembolsos.
+
+### Bloque 4 - Calidad de datos y bugs del plugin
+
+- [ ] 4.1 Bug: `organisation_type` en `list_participating_organisations`
+      lee el tipo de la reporting-org en vez del de cada participante.
+- [ ] 4.2 Bug: glosario CollaborationType (codigo 5 inexistente; 6 es
+      Private Sector Outflows; faltan 7 y 8); agregar "IATI" y "BID" al
+      glosario.
+- [ ] 4.3 Tool `data_quality_report()`: transacciones duplicadas exactas,
+      desembolsos negativos, desembolso > compromiso, outliers (BR0375),
+      actividades sin transacciones, fechas posteriores al
+      generated-datetime, locations fuera del pais, descripciones vacias
+      o "EN", conditions sin texto.
+- [ ] 4.4 Marcar (no ocultar) duplicados y negativos en
+      `activity_transactions` y en los totales.
+- [ ] 4.5 Tools `activity_locations` (con flag de calidad),
+      `activity_budgets`, `activity_contacts`, `activity_conditions`.
+- [ ] 4.6 Tool `codelist_lookup(codelist, code)` para que el modelo no
+      recite codelists de memoria.
+
+### Bloque 5 - Busqueda
+
+- [ ] 5.1 `search_activities`: multi-termino, sin acentos, singular /
+      plural, palabra completa para nombres de estado ("Para" no debe
+      matchear Parana / Paraiba).
+- [ ] 5.2 `search_activities`: buscar en todas las narrativas (en / es /
+      pt) de titulo y descripcion, en titulos de indicadores y de
+      documentos; devolver `matched_in`; explicar cuando devuelve 0.
+- [ ] 5.3 Tool `filter_activities_by_state(state)` inferido de titulo,
+      participating-org y location, con la evidencia; tabla de regiones
+      (Nordeste, Amazonia Legal).
+- [ ] 5.4 Tool `search_indicators(text)` y `search_documents(category |
+      text)` (licitaciones A10 / adjudicaciones A11 / evaluaciones).
+- [ ] 5.5 Prompt: ante error de argumento (vocabulary inexistente),
+      consultar `list_sectors` antes de declarar "no hay datos".
+
+### Bloque 6 - Gateway / UI
+
+- [ ] 6.1 Boton "descargar CSV" en cada tabla; tool `activities_export`.
+- [ ] 6.2 `charts=` en `transaction_totals_by_year` y `_by_sector`
+      (plugin) y verificar que el gateway los renderiza (hoy 0 charts).
+- [ ] 6.3 Mostrar tablas de tool junto al texto para que las listas con
+      IDs no dependan del resumen del modelo.
+- [ ] 6.4 Indicador de progreso durante rondas largas (20-55 tool calls);
+      mostrar llamadas con argumentos invalidos y reintentos; log de tool
+      calls de la sesion exportable.
+- [ ] 6.5 Bug: keys `landing.metaPrompt / metaHowTo / metaTools /
+      metaAbout` sin traducir en index.html (mismatch con
+      `landing.meta.*` en los YAML).
+- [ ] 6.6 Nota fija "no soportado por el archivo" del gateway: hacerla
+      condicional.
+
+### Bloque 7 - Feedback externo
+
+- [ ] 7.1 Reporte al BID: compromiso BR0375 x100, 374 desembolsos
+      duplicados, negativos sin marca, locations basura, descripciones
+      "EN", conditions vacias, flow-type 20 retirado, document language
+      "na", actividades retiradas entre versiones sin rastro.
+- [ ] 7.2 okfn_iati: conservar todas las `category` de document-link;
+      exportar version / generated-datetime a un CSV de metadatos.
+- [ ] 7.3 Repetir esta evaluacion (mismos roles y preguntas, `ask.py`)
+      contra el archivo actual una vez cerrados los bloques 1-3 y
+      comparar la tabla de calidad.
 
 Los 15 reportes individuales tienen la lista completa de preguntas,
 verificaciones y sugerencias por rol; este documento resume lo que se

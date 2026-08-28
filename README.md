@@ -12,7 +12,8 @@ sectors and transactions from a configured IATI XML.
 
 Available tools:
 
-- `search_activities(text, limit=10)`: search activities by title.
+- `search_activities(text, limit=10)`: search activities by text in their
+  title, description or sector names, reporting where each match was found.
 - `list_activity_statuses()`: list available activity statuses and counts.
 - `list_reporting_organisations()`: list reporting organisations and their
   number of activities.
@@ -20,6 +21,12 @@ Available tools:
 - `filter_activities_by_country(country, limit=10)`: filter activities by
   recipient-country code or name.
 - `list_sectors(limit=100)`: list sector codes, names and vocabularies.
+  Missing names for OECD DAC codes (vocabulary 1) are filled in from the
+  standard DAC codelist.
+- `filter_activities_by_sector(sector, limit=10)`: filter activities by
+  sector code or name (exact code first, then exact name, then name
+  substring); on no match, the response lists the sectors available in the
+  loaded data.
 - `activity_summary(iati_identifier)`: show the main information and financial
   totals for one activity.
 - `activity_transactions(iati_identifier, limit=50)`: list an activity's

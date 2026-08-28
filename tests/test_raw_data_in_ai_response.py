@@ -92,6 +92,11 @@ DATA_TOOLS = [
         {"sector": "TR"},
     ),
     (
+        "filter_activities_by_participating_org",
+        queries.filter_activities_by_participating_org,
+        {"organisation": "ORG-010"},
+    ),
+    (
         "file_overview",
         queries.file_overview,
         {},

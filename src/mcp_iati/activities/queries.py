@@ -330,26 +330,25 @@ def date_coverage(date_kind: str = "all"):
 
     rows = []
 
-    def add_date_row(
-        dataframe,
-        dataset: str,
-        date_type: str,
-        column: str,
-    ):
+    def column_series(dataframe, column: str) -> pd.Series:
         if column in dataframe.columns:
-            raw_dates = (
+            return (
                 dataframe[column]
                 .fillna("")
                 .astype(str)
                 .str.strip()
             )
-        else:
-            raw_dates = pd.Series(
-                "",
-                index=dataframe.index,
-                dtype="string",
-            )
+        return pd.Series(
+            "",
+            index=dataframe.index,
+            dtype="string",
+        )
 
+    def add_date_row(
+        raw_dates: pd.Series,
+        dataset: str,
+        date_type: str,
+    ):
         has_value = raw_dates != ""
         parsed_dates = pd.to_datetime(
             raw_dates.where(has_value),
@@ -390,28 +389,42 @@ def date_coverage(date_kind: str = "all"):
 
     if selected_kind in {"activities", "all"}:
         activities = activities_df()
+        # Some publishers report dates only as activity-date elements,
+        # leaving the activities.csv date columns empty.
+        fallback_dates = _activity_date_fallback()
+        activity_ids = column_series(
+            activities,
+            "activity_identifier",
+        )
 
         activity_date_columns = [
-            ("Planned start", "planned_start_date"),
-            ("Actual start", "actual_start_date"),
-            ("Planned end", "planned_end_date"),
-            ("Actual end", "actual_end_date"),
+            ("Planned start", "planned_start_date", "1"),
+            ("Actual start", "actual_start_date", "2"),
+            ("Planned end", "planned_end_date", "3"),
+            ("Actual end", "actual_end_date", "4"),
         ]
 
-        for date_type, column in activity_date_columns:
+        for date_type, column, type_code in activity_date_columns:
+            raw_dates = column_series(activities, column)
+            fallback = fallback_dates.get(type_code)
+            if fallback:
+                mapped = activity_ids.map(fallback).fillna("")
+                raw_dates = raw_dates.where(
+                    raw_dates != "",
+                    mapped,
+                )
             add_date_row(
-                activities,
+                raw_dates,
                 "Activities",
                 date_type,
-                column,
             )
 
     if selected_kind in {"transactions", "all"}:
+        transactions = transactions_df()
         add_date_row(
-            transactions_df(),
+            column_series(transactions, "transaction_date"),
             "Transactions",
             "Transaction date",
-            "transaction_date",
         )
 
     table = h.build_table(
@@ -677,7 +690,8 @@ def list_category_values(
 
 
 def search_activities(text: str, limit: int = 10):
-    """Search IATI activities by text in their title, description or sectors."""
+    """Search IATI activities by text in their title, description, sectors
+    or participating organisation names."""
     tool_name = "search_activities"
 
     search_text = str(text).strip()
@@ -728,6 +742,30 @@ def search_activities(text: str, limit: int = 10):
         .to_dict()
     )
 
+    orgs = participating_orgs_df()
+    org_hits = orgs[_contains(orgs["org_name"])].copy()
+    org_hits["activity_identifier"] = (
+        org_hits["activity_identifier"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    org_hits["org_name"] = (
+        org_hits["org_name"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    org_names = (
+        org_hits.groupby("activity_identifier")["org_name"]
+        .apply(
+            lambda names: ", ".join(
+                sorted({name for name in names if name})
+            )
+        )
+        .to_dict()
+    )
+
     matched_in = []
     for title_hit, description_hit, identifier in zip(
         title_match,
@@ -742,6 +780,9 @@ def search_activities(text: str, limit: int = 10):
         matched_sectors = sector_names.get(identifier)
         if matched_sectors:
             fields.append(f"sector ({matched_sectors})")
+        matched_orgs = org_names.get(identifier)
+        if matched_orgs:
+            fields.append(f"participating org ({matched_orgs})")
         matched_in.append(", ".join(fields))
     activities["matched_in"] = matched_in
 
@@ -754,7 +795,8 @@ def search_activities(text: str, limit: int = 10):
     if matches.empty:
         return h.empty_result(
             f"No IATI activities found with '{search_text}' in their "
-            "title, description or sectors.",
+            "title, description, sectors or participating "
+            "organisations.",
             source_url=xml_source(),
         )
 
@@ -782,7 +824,8 @@ def search_activities(text: str, limit: int = 10):
 
     summary = (
         f"Found {total} IATI activity(ies) matching '{search_text}' "
-        "in their title, description or sectors."
+        "in their title, description, sectors or participating "
+        "organisations."
     )
 
     return h.text_result(
@@ -880,6 +923,27 @@ def _activity_sector_labels(iati_identifier: str) -> list[str]:
         if label not in labels:
             labels.append(label)
     return labels
+
+
+def _activity_date_fallback() -> dict[str, dict[str, str]]:
+    """Map date-type codes to {activity_identifier: iso_date} lookups.
+
+    Built from the optional activity-date elements table; the first
+    non-empty date wins for each activity and date type.
+    """
+    dates = activity_dates_df()
+    lookup: dict[str, dict[str, str]] = {}
+    for _, date_row in dates.iterrows():
+        identifier = _clean_cell(date_row.get("activity_identifier"))
+        type_code = _clean_cell(date_row.get("type"))
+        iso_date = _clean_cell(date_row.get("iso_date"))
+        if not identifier or not type_code or not iso_date:
+            continue
+        lookup.setdefault(type_code, {}).setdefault(
+            identifier,
+            iso_date,
+        )
+    return lookup
 
 
 def _activity_date_parts(iati_identifier: str) -> list[str]:
@@ -1537,6 +1601,173 @@ def filter_activities_by_sector(
         total=total,
         shown=len(shown),
         filters={"sector": selected},
+        limit=limit,
+    )
+
+
+def filter_activities_by_participating_org(
+    organisation: str,
+    limit: int = 10,
+):
+    """Filter IATI activities by participating organisation.
+
+    Exact organisation-reference matches win, then exact names, then a
+    case-insensitive substring of the name. When nothing matches, the
+    response lists the organisations available in the loaded data.
+    """
+    tool_name = "filter_activities_by_participating_org"
+    selected = str(organisation).strip()
+
+    if not selected:
+        return h.empty_result(
+            "A participating organisation reference or name is required.",
+            source_url=xml_source(),
+        )
+
+    if limit < 1:
+        return h.empty_result(
+            "The result limit must be greater than zero.",
+            source_url=xml_source(),
+        )
+
+    orgs = participating_orgs_df().copy()
+    for column in (
+        "activity_identifier",
+        "org_ref",
+        "org_name",
+        "role",
+    ):
+        orgs[column] = (
+            orgs[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+    orgs = orgs[
+        (orgs["org_ref"] != "") | (orgs["org_name"] != "")
+    ]
+
+    if orgs.empty:
+        return h.empty_result(
+            "No participating organisations were found in the loaded "
+            "IATI data.",
+            source_url=xml_source(),
+        )
+
+    needle = selected.casefold()
+    refs = orgs["org_ref"].str.casefold()
+    names = orgs["org_name"].str.casefold()
+
+    matches = orgs[refs == needle]
+    if matches.empty:
+        matches = orgs[names == needle]
+    if matches.empty:
+        matches = orgs[
+            names.str.contains(needle, regex=False)
+        ]
+
+    if matches.empty:
+        available = sorted({
+            name or ref
+            for name, ref in zip(
+                orgs["org_name"],
+                orgs["org_ref"],
+            )
+        })
+        preview = "; ".join(available[:30])
+        suffix = "; ..." if len(available) > 30 else ""
+        return h.empty_result(
+            f"No participating organisation matches '{selected}'. "
+            f"Available organisations: {preview}{suffix}",
+            source_url=xml_source(),
+        )
+
+    matched = matches.copy()
+    matched["org_display"] = matched["org_name"].where(
+        matched["org_name"] != "",
+        matched["org_ref"],
+    )
+    has_role = matched["role"] != ""
+    matched.loc[has_role, "org_display"] = (
+        matched.loc[has_role, "org_display"]
+        + " (role: "
+        + matched.loc[has_role, "role"].map(
+            h.organisation_role_label
+        )
+        + ")"
+    )
+
+    orgs_by_activity = (
+        matched.groupby("activity_identifier")["org_display"]
+        .apply(
+            lambda values: ", ".join(sorted(set(values)))
+        )
+    )
+
+    activities = (
+        activities_df()
+        .drop_duplicates(subset=["activity_identifier"])
+        .copy()
+    )
+    activity_ids = (
+        activities["activity_identifier"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+    activities["matched_orgs"] = activity_ids.map(
+        orgs_by_activity
+    )
+
+    all_matches = activities[
+        activities["matched_orgs"].notna()
+    ]
+    total = len(all_matches)
+
+    if all_matches.empty:
+        return h.empty_result(
+            "No IATI activities were found for participating "
+            f"organisation '{selected}'.",
+            source_url=xml_source(),
+        )
+
+    shown = all_matches.head(limit)
+
+    rows = shown[
+        [
+            "activity_identifier",
+            "title",
+            "activity_status",
+            "matched_orgs",
+        ]
+    ].fillna("")
+
+    table = h.build_table(
+        rows.to_dict("records"),
+        [
+            ("activity_identifier", "IATI identifier"),
+            ("title", "Title"),
+            ("activity_status", "Status"),
+            ("matched_orgs", "Participating organisation"),
+        ],
+        formatters={
+            "activity_status": h.activity_status_label,
+        },
+    )
+
+    summary = (
+        f"Found {total} IATI activity(ies) with participating "
+        f"organisation '{selected}'."
+    )
+
+    return h.text_result(
+        summary,
+        source_url=xml_source(),
+        table=table,
+        tool_name=tool_name,
+        total=total,
+        shown=len(shown),
+        filters={"participating_org": selected},
         limit=limit,
     )
 

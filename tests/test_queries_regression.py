@@ -29,7 +29,8 @@ def test_search_activities_preserves_table_and_source(seed_cache):
 
     assert text.startswith(
         "Found 1 IATI activity(ies) matching 'transport' "
-        "in their title, description or sectors."
+        "in their title, description, sectors or participating "
+        "organisations."
     )
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
@@ -42,7 +43,8 @@ def test_search_activities_preserves_table_and_source(seed_cache):
             "IATI-001",
             "Sustainable transport programme",
             "Implementation",
-            "title, sector (Transport)",
+            "title, sector (Transport), "
+            "participating org (Ministry of Transport)",
         ],
     ]
     _assert_data_and_glossary_sources(
@@ -107,6 +109,94 @@ def test_search_activities_rejects_empty_text(seed_cache):
     result = queries.search_activities("   ")
 
     assert _text(result) == "A search text is required."
+    assert "table" not in result.structuredContent
+
+
+def test_search_activities_matches_participating_org(seed_cache):
+    result = queries.search_activities("ministry")
+
+    assert result.structuredContent["table"] == [
+        ["IATI identifier", "Title", "Status", "Matched in"],
+        [
+            "IATI-001",
+            "Sustainable transport programme",
+            "Implementation",
+            "participating org (Ministry of Transport)",
+        ],
+    ]
+
+
+def test_filter_activities_by_participating_org_matches_ref(seed_cache):
+    result = queries.filter_activities_by_participating_org("org-010")
+    text = _text(result)
+
+    assert text.startswith(
+        "Found 1 IATI activity(ies) with participating organisation "
+        "'org-010'."
+    )
+    assert "Applied filters: participating_org=org-010" in text
+    assert result.structuredContent["table"] == [
+        [
+            "IATI identifier",
+            "Title",
+            "Status",
+            "Participating organisation",
+        ],
+        [
+            "IATI-001",
+            "Sustainable transport programme",
+            "Implementation",
+            "Ministry of Transport (role: Implementing)",
+        ],
+    ]
+    _assert_data_and_glossary_sources(
+        result,
+        seed_cache.source,
+    )
+
+
+def test_filter_activities_by_participating_org_matches_name_substring(
+    seed_cache,
+):
+    result = queries.filter_activities_by_participating_org("bank")
+
+    assert result.structuredContent["table"] == [
+        [
+            "IATI identifier",
+            "Title",
+            "Status",
+            "Participating organisation",
+        ],
+        [
+            "IATI-001",
+            "Sustainable transport programme",
+            "Implementation",
+            "Development Bank (role: Funding)",
+        ],
+    ]
+
+
+def test_filter_activities_by_participating_org_lists_available(
+    seed_cache,
+):
+    result = queries.filter_activities_by_participating_org("banana")
+
+    text = _text(result)
+    assert "No participating organisation matches 'banana'." in text
+    assert "Available organisations:" in text
+    assert "Ministry of Transport" in text
+    assert "Development Bank" in text
+    assert "table" not in result.structuredContent
+
+
+def test_filter_activities_by_participating_org_rejects_empty(
+    seed_cache,
+):
+    result = queries.filter_activities_by_participating_org("  ")
+
+    assert _text(result) == (
+        "A participating organisation reference or name is required."
+    )
     assert "table" not in result.structuredContent
 
 
@@ -228,7 +318,7 @@ def test_search_activities_preserves_empty_response(seed_cache):
 
     assert _text(result).startswith(
         "No IATI activities found with 'nonexistent' in their "
-        "title, description or sectors."
+        "title, description, sectors or participating organisations."
     )
     assert "=== Relevant IATI terms ===" not in _text(result)
     assert "table" not in result.structuredContent
@@ -2012,6 +2102,64 @@ def test_date_coverage_reports_activity_and_transaction_ranges(seed_cache):
         0,
         0,
     ] in table
+
+def test_date_coverage_falls_back_to_activity_date_elements(seed_cache):
+    # The synthetic activities have no date columns, so the coverage must
+    # come from the activity-date elements seeded in conftest (IATI-001:
+    # planned start 2024-01-01, actual start 2024-01-15).
+    result = queries.date_coverage(date_kind="activities")
+    table = result.structuredContent["table"]
+
+    assert [
+        "Activities",
+        "Planned start",
+        "2024-01-01",
+        "2024-01-01",
+        1,
+        1,
+        0,
+    ] in table
+    assert [
+        "Activities",
+        "Actual start",
+        "2024-01-15",
+        "2024-01-15",
+        1,
+        1,
+        0,
+    ] in table
+    assert [
+        "Activities",
+        "Planned end",
+        "",
+        "",
+        0,
+        2,
+        0,
+    ] in table
+
+
+def test_date_coverage_prefers_activity_columns_over_elements(seed_cache):
+    # When the activities.csv date columns have a value, it wins over the
+    # activity-date elements for that activity.
+    seed_cache.activities["planned_start_date"] = [
+        "2020-05-05",
+        "",
+    ]
+
+    result = queries.date_coverage(date_kind="activities")
+    table = result.structuredContent["table"]
+
+    assert [
+        "Activities",
+        "Planned start",
+        "2020-05-05",
+        "2020-05-05",
+        1,
+        1,
+        0,
+    ] in table
+
 
 def test_date_coverage_can_select_transactions_only(seed_cache):
     result = queries.date_coverage(date_kind="transactions")

@@ -57,6 +57,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "Which IATI activities have Brazil as their recipient country?",
             "Which sectors are present in this IATI file?",
             "Which IATI activities belong to the tourism sector?",
+            "Which activities have a given organisation as participant?",
             "Show the transactions for activity XI-IATI-IADB-BR-L1231",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
@@ -123,7 +124,9 @@ def _register_iati_tools(mcp):  # noqa: C901
         """Report the date range covered by the configured IATI data.
 
         Use date_kind to select activity dates, transaction dates or both:
-        - activities: planned and actual start and end dates.
+        - activities: planned and actual start and end dates (read from the
+          activity attributes, falling back to activity-date elements when
+          the attributes are empty).
         - transactions: dates of financial transactions.
         - all: both activity and transaction dates.
 
@@ -175,8 +178,8 @@ def _register_iati_tools(mcp):  # noqa: C901
         return activities.search_activities(text, limit=limit)
 
     search_activities.__doc__ = (
-        """Search IATI activities whose title, description or sector names
-        contain the given text.
+        """Search IATI activities whose title, description, sector names or
+        participating organisation names contain the given text.
 
         Use this tool for topic or keyword questions, such as activities
         about tourism, education or water, and as a first step to discover
@@ -184,14 +187,15 @@ def _register_iati_tools(mcp):  # noqa: C901
         activity_summary.
 
         Args:
-            text: Substring to search for in the title, description and
-                sector names (case-insensitive).
+            text: Substring to search for in the title, description,
+                sector names and participating organisation names
+                (case-insensitive).
             limit: Maximum number of results to return. Default: 10.
 
         Returns:
             A table with the IATI identifier, title and status of each
             match, plus the fields where the text was found (including the
-            matching sector names).
+            matching sector and organisation names).
 
         Relevant IATI terms:
         """
@@ -350,6 +354,42 @@ def _register_iati_tools(mcp):  # noqa: C901
         + tool_glossary_text("filter_activities_by_sector")
     )
     mcp.tool()(filter_activities_by_sector)
+
+
+    def filter_activities_by_participating_org(
+        organisation: str,
+        limit: int = 10,
+    ) -> DataToolOutput:
+        return activities.filter_activities_by_participating_org(
+            organisation,
+            limit=limit,
+        )
+
+    filter_activities_by_participating_org.__doc__ = (
+        """Filter IATI activities by participating organisation.
+
+        The organisation may be provided as an IATI organisation reference
+        or as a name. Exact reference matches win, then exact names, then a
+        case-insensitive substring of the name. Prefer this tool over
+        search_activities when the question is about who participates in,
+        funds or implements activities.
+
+        When no organisation matches, the response lists the organisations
+        available in the loaded data.
+
+        Args:
+            organisation: Participating organisation reference or name.
+            limit: Maximum number of activities to return. Default: 10.
+
+        Returns:
+            A table containing matching activity identifiers, titles,
+            statuses and the matched organisations with their roles.
+
+        Relevant IATI terms:
+        """
+        + tool_glossary_text("filter_activities_by_participating_org")
+    )
+    mcp.tool()(filter_activities_by_participating_org)
 
 
     def activity_summary(iati_identifier: str) -> DataToolOutput:

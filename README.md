@@ -182,6 +182,26 @@ uv run mcp-server
 
 The tools become available with the `mcp_iati_` prefix.
 
+## Charts
+
+Besides the table, some tools return Chart.js specs in
+`structuredContent["charts"]`, which the chat gateway renders next to the
+answer (same contract as the Uruguay energy-balance plugin):
+
+| Tool | Chart |
+|------|-------|
+| `transaction_totals_by_year` | grouped bars, commitments vs disbursements per year, one chart per currency |
+| `transaction_totals_by_sector` | pie of the top 10 sectors plus "Other", one chart per vocabulary and currency |
+| `list_activity_statuses` | pie of activities by status |
+| `list_sectors` | bars of activities per sector, one chart per vocabulary |
+| `list_participating_organisations` | bars of activities per organisation (the reporting organisation is left out of the chart) |
+| `top_activities_by_amount` | bars of the largest activities, one chart per currency |
+| `activity_transactions` | cumulative lines per transaction type over time |
+
+Currencies and sector vocabularies are never mixed in one chart, charts
+with fewer than two points are skipped and a response carries at most
+three charts. The builders live in `src/mcp_iati/helpers/charts.py`.
+
 ## Chat gateway branding
 
 The plugin describes itself to MCP clients through the standard channels

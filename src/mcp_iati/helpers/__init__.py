@@ -3,10 +3,13 @@
 Tool modules focus on queries while reusable formatting and response logic
 lives under a single helpers namespace. ``text_result`` embeds the raw table
 as text for the AI and appends the ``NO_SPECULATION`` guardrail (see
-``format.py``).
+``format.py``). ``charts`` holds the Chart.js spec builders that tools pass
+through ``text_result(charts=[...])``.
 """
 
+from . import charts
 from .format import (
+    ALREADY_CHART,
     ALREADY_TABLE,
     NO_SPECULATION,
     activity_date_type_label,
@@ -22,7 +25,9 @@ from .format import (
 )
 
 __all__ = [
+    "ALREADY_CHART",
     "ALREADY_TABLE",
+    "charts",
     "NO_SPECULATION",
     "activity_date_type_label",
     "activity_status_label",

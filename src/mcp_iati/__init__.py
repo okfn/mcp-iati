@@ -37,7 +37,16 @@ def _register_iati_tools(mcp):  # noqa: C901
             "commitment with a disbursement or an expenditure. Use only the data "
             "returned by the tools. When the user asks what a term means, call "
             "define_term. If a question falls outside the tools' scope, call "
-            "no_tool_disponible and explain why."
+            "no_tool_disponible and explain why. Some tools also return a "
+            "chart that the interface renders on screen next to the table: "
+            "transaction_totals_by_year (commitments vs disbursements per "
+            "year), transaction_totals_by_sector (share by sector), "
+            "list_activity_statuses (activities by status), list_sectors and "
+            "list_participating_organisations (activities per sector or "
+            "organisation), top_activities_by_amount (largest activities) and "
+            "activity_transactions (cumulative amounts over time). When the "
+            "user asks for a chart, graph or plot, call the matching tool; "
+            "never draw charts yourself in ASCII, SVG or code."
         ),
         sample_questions=[
             "What does this IATI file contain?",
@@ -58,6 +67,11 @@ def _register_iati_tools(mcp):  # noqa: C901
             "How much was committed by sector?",
             "Which activities have the highest commitment totals?",
             "Show annual commitments and disbursements from 2022 to 2024.",
+            "Chart the annual commitments and disbursements.",
+            "How is committed funding distributed across sectors?",
+            "What share of activities are still in implementation?",
+            "Which sectors have the most activities?",
+            "Which organisations, apart from the publisher, participate in the most activities?",
         ],
     )
 

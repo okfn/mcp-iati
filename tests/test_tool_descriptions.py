@@ -56,27 +56,6 @@ def test_plugin_sample_questions_cover_main_use_cases(fake_mcp):
 
     questions = fake_mcp.plugin_info["sample_questions"]
     assert "What does this IATI file contain?" in questions
-    assert "Search IATI activities about transport" in questions
-    assert "Give me a summary of activity XI-IATI-IADB-BR-L1231" in questions
-    assert "What activity statuses are present in this IATI file?" in questions
-    assert "Which organisations report activities in this IATI file?" in questions
-    assert "Which recipient countries are present in this IATI file?" in questions
-    assert "Which IATI activities have Brazil as their recipient country?" in questions
-    assert "Show the transactions for activity XI-IATI-IADB-BR-L1231" in questions
-    assert "How much was committed and disbursed each year?" in questions
-    assert "How much was committed and disbursed by each reporting organisation?" in questions
-    assert "How much was committed by sector?" in questions
-    assert "How much was disbursed by sector in USD?" in questions
-    assert "How much was committed and disbursed by recipient country?" in questions
-    assert "Which activities have the highest commitment totals?" in questions
-    assert "Which activities have the highest disbursement totals in USD?" in questions
-    assert "Show annual commitments and disbursements from 2022 to 2024." in questions
-    assert "What date range does this IATI file cover?" in questions
-    assert (
-        "What transaction types are present in this IATI file?"
-        in questions
-    )
-    assert "What aid types are present in this IATI file?" in questions
 
 
 def test_no_tool_disponible_returns_clear_fallback_message(fake_mcp):

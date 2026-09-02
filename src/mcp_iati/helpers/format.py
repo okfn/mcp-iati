@@ -33,6 +33,15 @@ ALREADY_TABLE = (
     "numbers; do not copy the table back into your answer, interpret it."
 )
 
+# Note for the AI when a tool also returns `charts`: the gateway renders them
+# with Chart.js next to the table, so the model must not improvise ASCII art
+# or SVG (both were observed in the 2026-08-28 roleplay evaluation).
+ALREADY_CHART = (
+    "The user has also been shown a rendered chart of this data on screen. "
+    "Do not draw another chart in ASCII, SVG or any other form; you may "
+    "refer to the chart that is already displayed."
+)
+
 # Guardrail for the AI, appended automatically to every response by
 # `text_result`. Keeps the model from inventing data that is not in the XML
 # and from mixing up the IATI roles/concepts that are commonly confused.
@@ -170,6 +179,7 @@ def text_result(
     shown: int | None = None,
     filters: Mapping[str, Any] | None = None,
     limit: int | None = None,
+    charts: Sequence[Mapping[str, Any]] | None = None,
 ):
     """Build the standard IATI response.
 
@@ -178,6 +188,10 @@ def text_result(
     table is embedded as text for the AI, followed by the no-speculation
     guardrail. `source_url` is explicit so this module stays independent
     from the data layer; queries pass `data.xml_source()`.
+
+    `charts` is an optional list of Chart.js specs built with
+    `helpers.charts`; they are forwarded untouched in structuredContent and
+    the AI is told a chart is already on screen (`ALREADY_CHART`).
     """
     body = text
 
@@ -198,6 +212,8 @@ def text_result(
             "=== Full data (for your analysis) ===\n"
             + _table_to_text(table)
         )
+    if charts:
+        body += f"\n\n{ALREADY_CHART}"
     body = f"{body}\n\n{NO_SPECULATION}"
 
     result = _text_result(
@@ -207,6 +223,7 @@ def text_result(
             tool_name,
         ),
         table=table,
+        charts=list(charts) if charts else None,
     )
     return result
 

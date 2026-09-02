@@ -92,6 +92,170 @@ def _named_sectors(sectors: pd.DataFrame) -> pd.DataFrame:
     return sectors
 
 
+# Charts: at most this many per response, so a file with many currencies or
+# sector vocabularies does not flood the chat (each chart is a collapsed
+# message in the gateway).
+MAX_CHARTS = 3
+
+# Bars/slices drawn before folding the rest into "Other".
+CHART_TOP_N = h.charts.DEFAULT_TOP_N
+
+
+def _currency_label(currency) -> str:
+    text = str(currency).strip() if currency is not None and str(currency) != "nan" else ""
+    return text or "unknown currency"
+
+
+def _year_totals_charts(grouped: pd.DataFrame) -> list[dict]:
+    """One grouped bar chart per currency: commitment vs disbursement by year.
+
+    ``grouped`` has one row per (year, transaction_type, currency) with the
+    summed ``value``. Currencies are never mixed in one chart.
+    """
+    charts = []
+    for currency, group in grouped.groupby("currency", sort=True, dropna=False):
+        if len(group) < 2:
+            continue
+        years = sorted(int(year) for year in group["year"].unique())
+        pivot = group.pivot_table(
+            index="year",
+            columns="transaction_type",
+            values="value",
+            aggfunc="sum",
+        ).reindex(years)
+        series = [
+            (h.transaction_type_label(code), pivot[code].tolist())
+            for code in sorted(pivot.columns)
+        ]
+        charts.append(h.charts.bar_chart(
+            f"Commitments and disbursements by year ({_currency_label(currency)})",
+            years,
+            series,
+        ))
+    return charts[:MAX_CHARTS]
+
+
+def _sector_totals_charts(grouped: pd.DataFrame, transaction_type_code: str) -> list[dict]:
+    """One pie per (vocabulary, currency): share of the amount by sector.
+
+    Uses the full grouping (not the limited rows) so the "Other" slice is
+    the true remainder. Vocabularies are never mixed: the same activity is
+    allocated once per vocabulary, so mixing them would double count.
+    """
+    charts = []
+    type_label = h.transaction_type_label(transaction_type_code)
+    for (vocabulary, currency), group in grouped.groupby(
+        ["vocabulary", "currency"],
+        sort=True,
+        dropna=False,
+    ):
+        names = group["sector_name"].where(
+            group["sector_name"] != "",
+            group["sector_code"],
+        )
+        slices = h.charts.top_n_with_other(
+            zip(
+                (h.charts.short_label(name, 50) for name in names),
+                group["allocated_value"],
+            ),
+            top_n=CHART_TOP_N,
+            other_label="Other sectors",
+        )
+        if len(slices) < 2:
+            continue
+        charts.append(h.charts.pie_chart(
+            f"{type_label} by sector: {h.charts.vocabulary_label(vocabulary)} "
+            f"({_currency_label(currency)})",
+            slices,
+        ))
+    return charts[:MAX_CHARTS]
+
+
+def _sector_count_charts(shown: pd.DataFrame) -> list[dict]:
+    """One bar chart per vocabulary: activities per sector (top N shown)."""
+    charts = []
+    for vocabulary, group in shown.groupby("vocabulary", sort=True, dropna=False):
+        top = group.head(CHART_TOP_N)
+        if len(top) < 2:
+            continue
+        charts.append(h.charts.bar_chart(
+            f"Activities by sector: {h.charts.vocabulary_label(vocabulary)} (top {len(top)})",
+            [h.charts.short_label(name) for name in top["display_name"]],
+            [("Activities", top["activities"].tolist())],
+        ))
+    return charts[:MAX_CHARTS]
+
+
+def _participating_org_charts(shown: pd.DataFrame) -> list[dict]:
+    """Bar chart of the organisations with most activities.
+
+    The reporting organisation participates in its own activities by
+    definition (in the IADB files it is also listed under a second name for
+    its capital window), which flattens every other bar; it is left out of
+    the chart, never out of the table.
+    """
+    reporting_refs = set(
+        activities_df()["reporting_org_ref"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    ) - {""}
+    top = shown[~shown["org_ref"].isin(reporting_refs)].head(CHART_TOP_N)
+    if len(top) < 2:
+        return []
+    suffix = ", excluding the reporting organisation" if reporting_refs else ""
+    return [h.charts.bar_chart(
+        f"Participating organisations by number of activities (top {len(top)}{suffix})",
+        [h.charts.short_label(name) for name in top["display_name"]],
+        [("Activities", top["activities"].tolist())],
+    )]
+
+
+def _top_activity_charts(grouped: pd.DataFrame, transaction_type_code: str) -> list[dict]:
+    """One bar chart per currency with the largest activities by amount."""
+    charts = []
+    type_label = h.transaction_type_label(transaction_type_code)
+    for currency, group in grouped.groupby("currency", sort=True, dropna=False):
+        top = group.head(CHART_TOP_N)
+        if len(top) < 2:
+            continue
+        labels = [
+            h.charts.short_label(title if str(title).strip() else identifier, 35)
+            for title, identifier in zip(top["title"], top["activity_identifier"])
+        ]
+        charts.append(h.charts.bar_chart(
+            f"Largest activities by {type_label.lower()} ({_currency_label(currency)})",
+            labels,
+            [(type_label, top["value"].tolist())],
+        ))
+    return charts[:MAX_CHARTS]
+
+
+def _activity_transaction_charts(shown: pd.DataFrame, iati_identifier: str) -> list[dict]:
+    """Cumulative amount per transaction type over time, one line chart per currency."""
+    frame = shown[["transaction_date", "transaction_type", "value", "currency"]].copy()
+    frame["date"] = pd.to_datetime(frame["transaction_date"], errors="coerce", format="mixed")
+    frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+    frame["currency"] = frame["currency"].fillna("").astype(str).str.strip()
+    frame["transaction_type"] = frame["transaction_type"].fillna("").astype(str).str.strip()
+    frame = frame[frame["date"].notna() & frame["value"].notna()]
+    charts = []
+    for currency, group in frame.groupby("currency", sort=True):
+        if len(group) < 3:
+            continue
+        dates = sorted(group["date"].unique())
+        series = []
+        for code, by_type in group.groupby("transaction_type", sort=True):
+            per_date = by_type.groupby("date")["value"].sum().reindex(dates, fill_value=0.0)
+            series.append((h.transaction_type_label(code), per_date.cumsum().tolist()))
+        charts.append(h.charts.line_chart(
+            f"Cumulative transactions of {iati_identifier} ({_currency_label(currency)})",
+            [pd.Timestamp(date).strftime("%Y-%m-%d") for date in dates],
+            series,
+        ))
+    return charts[:MAX_CHARTS]
+
+
 def file_overview():
     """Return a general overview of the configured IATI data."""
     tool_name = "file_overview"
@@ -907,6 +1071,13 @@ def list_activity_statuses():
         f"across {sum(counts)} activities."
     )
 
+    charts = []
+    if len(rows) >= 2:
+        charts.append(h.charts.pie_chart(
+            "Activities by status",
+            [(row["status"], row["activities"]) for row in rows],
+        ))
+
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -914,6 +1085,7 @@ def list_activity_statuses():
         tool_name=tool_name,
         total=len(rows),
         shown=len(rows),
+        charts=charts,
     )
 
 
@@ -1326,6 +1498,7 @@ def list_participating_organisations(limit: int = 300):
         total=total,
         shown=len(shown),
         limit=limit,
+        charts=_participating_org_charts(shown),
     )
 
 
@@ -1567,6 +1740,7 @@ def list_sectors(limit: int = 100):
         total=total,
         shown=len(shown),
         limit=limit,
+        charts=_sector_count_charts(shown),
     )
 
 
@@ -2048,6 +2222,7 @@ def transaction_totals_by_year(
             "year_from": year_from,
             "year_to": year_to,
         },
+        charts=_year_totals_charts(grouped),
     )
 
 
@@ -2765,6 +2940,7 @@ def transaction_totals_by_sector(
             "vocabulary": vocabulary,
         },
         limit=limit,
+        charts=_sector_totals_charts(grouped, transaction_type_code),
     )
 
 
@@ -3003,6 +3179,7 @@ def top_activities_by_amount(
         shown=len(rows),
         filters=filters,
         limit=limit,
+        charts=_top_activity_charts(grouped, transaction_type_code),
     )
 
 
@@ -3113,4 +3290,5 @@ def activity_transactions(
         shown=len(shown),
         filters={"iati_identifier": iati_identifier},
         limit=limit,
+        charts=_activity_transaction_charts(shown, iati_identifier),
     )

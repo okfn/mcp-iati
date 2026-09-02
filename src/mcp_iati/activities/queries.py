@@ -1230,7 +1230,7 @@ def list_reporting_organisations():
     )
 
 
-def list_participating_organisations(limit: int = 100):
+def list_participating_organisations(limit: int = 300):
     """List participating organisations present in the configured IATI data."""
     tool_name = "list_participating_organisations"
 

@@ -40,33 +40,23 @@ def _register_iati_tools(mcp):  # noqa: C901
             "no_tool_disponible and explain why."
         ),
         sample_questions=[
-            "Search IATI activities about transport",
             "What does this IATI file contain?",
-            "What transaction types are present in this IATI file?",
             "What aid types are present in this IATI file?",
             "What date range does this IATI file cover?",
-            "Give me a summary of activity XI-IATI-IADB-BR-L1231",
-            "Which organisations participate in activity XI-IATI-IADB-BR-L1231?",
             "What does it mean for an activity to be in implementation?",
             "What is a policy marker?",
-            "How much was committed and how much was disbursed in this activity?",
             "Is the reporting organisation also the one funding the project?",
             "What activity statuses are present in this IATI file?",
-            "Which organisations report activities in this IATI file?",
             "Which recipient countries are present in this IATI file?",
-            "Which IATI activities have Brazil as their recipient country?",
             "Which sectors are present in this IATI file?",
-            "Which IATI activities belong to the tourism sector?",
-            "Which activities have a given organisation as participant?",
             "Which organisations participate most often in this IATI file?",
+            "Give me a summary of activity XI-IATI-IADB-BR-L1231",
+            "Which organisations participate in activity XI-IATI-IADB-BR-L1231?",
             "Show the transactions for activity XI-IATI-IADB-BR-L1231",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
             "How much was committed by sector?",
-            "How much was disbursed by sector in USD?",
-            "How much was committed and disbursed by recipient country?",
             "Which activities have the highest commitment totals?",
-            "Which activities have the highest disbursement totals in USD?",
             "Show annual commitments and disbursements from 2022 to 2024.",
         ],
     )
@@ -247,7 +237,7 @@ def _register_iati_tools(mcp):  # noqa: C901
 
 
     def list_participating_organisations(
-        limit: int = 100,
+        limit: int = 300,
     ) -> DataToolOutput:
         return activities.list_participating_organisations(limit=limit)
 

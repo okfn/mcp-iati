@@ -24,6 +24,7 @@ def _register_iati_tools(mcp):  # noqa: C901
     MCP_IATI_XML_PATH).
     """
     mcp.set_plugin_info(
+        display_name="Explore IATI Data",
         description=(
             "Tools for querying activities and transactions published under "
             "the IATI open data standard for development cooperation."

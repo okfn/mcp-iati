@@ -214,7 +214,7 @@ def _register_iati_tools(mcp):  # noqa: C901
         organisation: str | None = None,
         status: str | None = None,
         text: str | None = None,
-        limit: int = 10,
+        limit: int = 300,
     ) -> DataToolOutput:
         return activities.filter_activities(
             country=country,
@@ -261,7 +261,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             organisation: Participating organisation reference or name.
             status: Activity status code or label.
             text: Text to find in the activity title or description.
-            limit: Maximum number of activities to return. Default: 10.
+            limit: Maximum number of activities to return. Default: 100.
 
         Returns:
             A table containing matching activity identifiers, titles and

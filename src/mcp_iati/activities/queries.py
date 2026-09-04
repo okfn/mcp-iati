@@ -1966,7 +1966,7 @@ def filter_activities(
     organisation: str | None = None,
     status: str | None = None,
     text: str | None = None,
-    limit: int = 10,
+    limit: int = 300,
     tool_name: str = "filter_activities",
 ):
     """Filter IATI activities by any combination of criteria.

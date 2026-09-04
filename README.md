@@ -20,7 +20,7 @@ Available tools:
   number of activities.
 - `list_participating_organisations(limit=100)`: list all participating
   organisations with their roles, ordered by number of activities.
-- `filter_activities(country, sector, organisation, status, text, limit=10)`:
+- `filter_activities(country, sector, organisation, status, text, limit=300)`:
   filter activities by any combination of recipient country, sector,
   participating organisation, activity status and title/description text
   (all optional, activities must satisfy every supplied one). Each value is

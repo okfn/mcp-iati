@@ -92,11 +92,6 @@ def _register_iati_tools(mcp):  # noqa: C901
             "Which sectors have the most activities?",
             "Which organisations, apart from the publisher, participate in the most activities?",
         ],
-        limitations=[
-            "Only answers questions supported by the currently loaded IATI file.",
-            "Cannot fill data gaps or infer information that publishers did not provide.",
-            "Cannot answer unrelated general-knowledge questions or query datasets not exposed through the available tools.",
-        ],
     )
 
     # The tool name stays `no_tool_disponible`: the base server's system

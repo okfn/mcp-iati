@@ -124,6 +124,7 @@ class FakeMCP:
     def __init__(self):
         self.plugin_info = None
         self.tools = {}
+        self.resources = {}
 
     def set_plugin_info(self, **kwargs):
         self.plugin_info = kwargs
@@ -131,6 +132,17 @@ class FakeMCP:
     def tool(self):
         def decorator(func):
             self.tools[func.__name__] = func
+            return func
+
+        return decorator
+
+    def resource(self, uri, **kwargs):
+        def decorator(func):
+            self.resources[func.__name__] = {
+                "uri": uri,
+                **kwargs,
+                "handler": func,
+            }
             return func
 
         return decorator

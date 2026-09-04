@@ -1,6 +1,6 @@
 [project]
 name = "mcp-iati"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP tools for processing IATI-standard files (local proof of concept, work in progress)"
 readme = "README.md"
 authors = [

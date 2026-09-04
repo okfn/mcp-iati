@@ -20,6 +20,18 @@ Available tools:
   number of activities.
 - `list_participating_organisations(limit=100)`: list all participating
   organisations with their roles, ordered by number of activities.
+- `filter_activities(country, sector, organisation, status, text, limit=10)`:
+  filter activities by any combination of recipient country, sector,
+  participating organisation, activity status and title/description text
+  (all optional, activities must satisfy every supplied one). Each value is
+  resolved against the loaded data before filtering, and the response says
+  how it matched and to which published value it resolved; when a value
+  cannot be resolved, the response names the failing filter and lists the
+  values available so the model can retry with an exact one. Country names
+  in English, Spanish, Portuguese or French ("Brasil", "Bresil") are mapped
+  to the ISO code (`activities/country_aliases.py`), so they match a file
+  that only says "Brazil". The three `filter_activities_by_*` tools below
+  are thin wrappers over this one.
 - `list_recipient_countries()`: list recipient countries and activity counts.
 - `filter_activities_by_country(country, limit=10)`: filter activities by
   recipient-country code or name.

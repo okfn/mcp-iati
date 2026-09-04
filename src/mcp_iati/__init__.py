@@ -38,15 +38,14 @@ def _register_iati_tools(mcp):  # noqa: C901
             "returned by the tools. When the user asks what a term means, call "
             "define_term. If a question falls outside the tools' scope, call "
             "no_tool_disponible and explain why. Some tools also return a "
-            "chart that the interface renders on screen next to the table: "
-            "transaction_totals_by_year (commitments vs disbursements per "
-            "year), transaction_totals_by_sector (share by sector), "
-            "list_activity_statuses (activities by status), list_sectors and "
-            "list_participating_organisations (activities per sector or "
-            "organisation), top_activities_by_amount (largest activities) and "
-            "activity_transactions (cumulative amounts over time). When the "
-            "user asks for a chart, graph or plot, call the matching tool; "
-            "never draw charts yourself in ASCII, SVG or code."
+            "chart that the interface renders on screen next to the table."
+            "When the user asks for a chart, graph or plot, call the matching tool; "
+            "never draw charts yourself in ASCII, SVG or code. "
+            "When a question combines criteria (country and sector, "
+            "organisation and status) call filter_activities with all of "
+            "them; pass ISO country codes such as BR when you know them, and "
+            "when a tool reports that a value did not match, retry with one "
+            "of the exact values it lists."
         ),
         sample_questions=[
             "What does this IATI file contain?",
@@ -58,6 +57,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "What activity statuses are present in this IATI file?",
             "Which recipient countries are present in this IATI file?",
             "Which sectors are present in this IATI file?",
+            "Which health activities in Brazil are still in implementation?",
             "Which organisations participate most often in this IATI file?",
             "Give me a summary of activity XI-IATI-IADB-BR-L1231",
             "Which organisations participate in activity XI-IATI-IADB-BR-L1231?",
@@ -208,6 +208,72 @@ def _register_iati_tools(mcp):  # noqa: C901
     )
     mcp.tool()(search_activities)
 
+    def filter_activities(
+        country: str | None = None,
+        sector: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
+        text: str | None = None,
+        limit: int = 10,
+    ) -> DataToolOutput:
+        return activities.filter_activities(
+            country=country,
+            sector=sector,
+            organisation=organisation,
+            status=status,
+            text=text,
+            limit=limit,
+        )
+
+    filter_activities.__doc__ = (
+        """Filter IATI activities by any combination of recipient country,
+        sector, participating organisation, activity status and free text.
+
+        Use this tool whenever a question combines criteria ("health
+        projects in Brazil still in implementation", "activities funded by
+        the IADB in the water sector"); activities must satisfy every
+        supplied filter. For a single criterion it is equivalent to the
+        filter_activities_by_* tools.
+
+        How values are matched (case- and accent-insensitive):
+        - country: prefer the ISO 3166-1 alpha-2 code ("BR", "AR") - it is
+          language-neutral. Names are also accepted, in English, Spanish,
+          Portuguese or French ("Brasil", "Bresil") and are resolved to
+          the code before matching.
+        - sector: a code (5-digit OECD DAC purpose code or a publisher
+          code) or a name; exact code, then exact name, then substring.
+        - organisation: an IATI organisation reference or a name; exact
+          reference, then exact name, then substring or similar name.
+        - status: a codelist code ("2") or its label ("implementation").
+        - text: substring of the activity title or description.
+
+        The response states, per filter, how the input was matched and to
+        which published value it resolved. When a filter cannot be
+        resolved, the response names it and lists the values available in
+        the loaded data: call this tool again with one of those exact
+        values instead of guessing. Use list_recipient_countries,
+        list_sectors, list_participating_organisations or
+        list_activity_statuses to discover values beforehand.
+
+        Args:
+            country: Recipient country ISO code or name.
+            sector: Sector code or name.
+            organisation: Participating organisation reference or name.
+            status: Activity status code or label.
+            text: Text to find in the activity title or description.
+            limit: Maximum number of activities to return. Default: 10.
+
+        Returns:
+            A table containing matching activity identifiers, titles and
+            statuses, plus the recipient country, matched sectors and
+            matched organisations (with roles) for the filters applied.
+
+        Relevant IATI terms:
+        """
+        + tool_glossary_text("filter_activities")
+    )
+    mcp.tool()(filter_activities)
+
     def list_activity_statuses() -> DataToolOutput:
         return activities.list_activity_statuses()
 
@@ -314,8 +380,10 @@ def _register_iati_tools(mcp):  # noqa: C901
         The country may be provided as an ISO country code, such as "BR",
         or as the country name published in the IATI data, such as "Brazil".
 
-        Use list_recipient_countries first when the available country codes
-        or names are unknown.
+        Names in Spanish, Portuguese or French ("Brasil") are resolved to
+        the ISO code. Use list_recipient_countries first when the available
+        country codes or names are unknown. To combine the country with a
+        sector, organisation or status, call filter_activities instead.
 
         Args:
             country: Recipient country code or name.
@@ -374,7 +442,9 @@ def _register_iati_tools(mcp):  # noqa: C901
         over search_activities when the question is about a sector.
 
         Use list_sectors first when the available sectors are unknown; when
-        no sector matches, the response lists the available sectors.
+        no sector matches, the response lists the available sectors. To
+        combine the sector with a country, organisation or status, call
+        filter_activities instead.
 
         Args:
             sector: Sector code or name.
@@ -413,7 +483,8 @@ def _register_iati_tools(mcp):  # noqa: C901
         funds or implements activities.
 
         When no organisation matches, the response lists the organisations
-        available in the loaded data.
+        available in the loaded data. To combine the organisation with a
+        country, sector or status, call filter_activities instead.
 
         Args:
             organisation: Participating organisation reference or name.

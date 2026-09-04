@@ -275,6 +275,15 @@ TOOL_GLOSSARY_TERMS = {
         "recipient country or region",
         "IATI activity",
     ),
+    "filter_activities": (
+        "recipient country or region",
+        "sector",
+        "participating organisation",
+        "organisation role",
+        "activity status",
+        "IATI activity",
+        "IATI identifier",
+    ),
     "filter_activities_by_country": (
         "recipient country or region",
         "IATI activity",

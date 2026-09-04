@@ -13,6 +13,7 @@ import unicodedata
 import pandas as pd
 
 from mcp_iati import helpers as h
+from mcp_iati.activities.country_aliases import country_code_for_name
 from mcp_iati.activities.data import (
     activities_df,
     activity_dates_df,
@@ -1583,17 +1584,415 @@ def list_recipient_countries():
         shown=len(counts),
     )
 
-def filter_activities_by_country(
-    country: str,
-    limit: int = 10,
-):
-    """Filter IATI activities by recipient country code or name."""
-    tool_name = "filter_activities_by_country"
-    country = country.strip()
+class _Criterion:
+    """One resolved filter criterion of `filter_activities`.
 
-    if not country:
+    `ids` is the set of activity identifiers that satisfy the criterion;
+    `details` maps identifiers to the display text shown in the table
+    (matched sectors or organisations, as published). `error` carries the
+    empty-result message when the value could not be resolved, including
+    the values available in the loaded data so the caller can retry.
+    """
+
+    def __init__(
+        self,
+        key: str,
+        label: str,
+        value: str,
+        ids: set[str] | None = None,
+        details: dict[str, str] | None = None,
+        match_kind: str | None = None,
+        resolved: str | None = None,
+        error: str | None = None,
+    ):
+        self.key = key
+        self.label = label
+        self.value = value
+        self.ids = ids if ids is not None else set()
+        self.details = details or {}
+        self.match_kind = match_kind
+        self.resolved = resolved
+        self.error = error
+
+
+def _stripped(series: pd.Series) -> pd.Series:
+    return series.fillna("").astype(str).str.strip()
+
+
+def _available_preview(values, limit: int = 30) -> str:
+    available = sorted({value for value in values if value})
+    preview = "; ".join(available[:limit])
+    suffix = "; ..." if len(available) > limit else ""
+    return f"{preview}{suffix}"
+
+
+def _resolve_country(country: str, activities: pd.DataFrame) -> _Criterion:
+    """Resolve a recipient-country code or name to activity identifiers.
+
+    Ladder: ISO code, exact published name, alias table (English,
+    Spanish, Portuguese, French names -> ISO code), published-name
+    substring, then close similarity on published names. The alias step
+    keeps "Brasil" deterministic even when the file only says "Brazil".
+    """
+    criterion = _Criterion("recipient_country", "recipient country", country)
+    codes = _stripped(activities["recipient_country_code"]).str.upper()
+    names = _stripped(activities["recipient_country_name"])
+    folded_names = _folded(names)
+    ids = _stripped(activities["activity_identifier"])
+    needle = _fold_text(country)
+
+    def _pick(mask: pd.Series, kind: str) -> bool:
+        if not mask.any():
+            return False
+        labels = sorted({
+            f"{code} ({name})" if name else code
+            for code, name in zip(codes[mask], names[mask])
+        })
+        criterion.ids = set(ids[mask])
+        criterion.match_kind = kind
+        criterion.resolved = ", ".join(labels)
+        criterion.details = {}
+        return True
+
+    if _pick(codes == country.upper(), "ISO code"):
+        return criterion
+    if _pick(folded_names == needle, "exact name"):
+        return criterion
+
+    alias_code = country_code_for_name(country)
+    if alias_code and _pick(codes == alias_code, "translated name"):
+        return criterion
+    if len(needle) >= 3 and _pick(
+        folded_names.str.contains(needle, regex=False)
+        & (folded_names != ""),
+        "name substring",
+    ):
+        return criterion
+
+    close = difflib.get_close_matches(
+        needle,
+        [name for name in folded_names.unique() if name],
+        n=3,
+        cutoff=0.8,
+    )
+    if close and _pick(folded_names.isin(close), "similar name"):
+        return criterion
+
+    available = _available_preview(
+        f"{code} ({name})" if name else code
+        for code, name in zip(codes, names)
+    )
+    hint = f" (ISO code {alias_code})" if alias_code else ""
+    criterion.error = (
+        f"No recipient country matches '{country}'{hint}. "
+        f"Available recipient countries: {available}"
+    )
+    return criterion
+
+
+def _resolve_sector(sector: str) -> _Criterion:
+    """Resolve a sector code or name: exact code, exact name, substring."""
+    criterion = _Criterion("sector", "sector", sector)
+    sectors = _named_sectors(sectors_df())
+    sectors = sectors[
+        (sectors["sector_code"] != "") | (sectors["sector_name"] != "")
+    ]
+    if sectors.empty:
+        criterion.error = "No sectors were found in the loaded IATI data."
+        return criterion
+
+    needle = _fold_text(sector)
+    codes = _folded(sectors["sector_code"])
+    names = _folded(sectors["sector_name"])
+
+    matches = sectors[codes == needle]
+    match_kind = "exact code"
+    if matches.empty:
+        matches = sectors[names == needle]
+        match_kind = "exact name"
+    if matches.empty:
+        matches = sectors[names.str.contains(needle, regex=False)]
+        match_kind = "name substring"
+
+    if matches.empty:
+        criterion.error = (
+            f"No sector matches '{sector}'. Available sectors: "
+            + _available_preview(
+                name or code
+                for name, code in zip(
+                    sectors["sector_name"], sectors["sector_code"]
+                )
+            )
+        )
+        return criterion
+
+    matched = matches.copy()
+    matched["display"] = matched["sector_name"].where(
+        matched["sector_name"] != "", matched["sector_code"]
+    )
+    has_both = (matched["sector_code"] != "") & (matched["sector_name"] != "")
+    matched.loc[has_both, "display"] = (
+        matched.loc[has_both, "sector_name"]
+        + " ("
+        + matched.loc[has_both, "sector_code"]
+        + ")"
+    )
+    details = (
+        matched.groupby("activity_identifier")["display"]
+        .apply(lambda values: ", ".join(sorted(set(values))))
+        .to_dict()
+    )
+    criterion.ids = set(details)
+    criterion.details = details
+    criterion.match_kind = match_kind
+    criterion.resolved = ", ".join(sorted(set(matched["display"])))
+    return criterion
+
+
+def _resolve_organisation(organisation: str) -> _Criterion:
+    """Resolve a participating organisation reference or name.
+
+    Ladder: exact reference, exact name, then name substring combined
+    with close similarity (published names are often misspelled, and
+    substring alone would let a longer name shadow the intended one).
+    """
+    criterion = _Criterion(
+        "participating_org", "participating organisation", organisation
+    )
+    orgs = participating_orgs_df().copy()
+    for column in ("activity_identifier", "org_ref", "org_name", "role"):
+        orgs[column] = _stripped(orgs[column])
+    orgs = orgs[(orgs["org_ref"] != "") | (orgs["org_name"] != "")]
+    if orgs.empty:
+        criterion.error = (
+            "No participating organisations were found in the loaded "
+            "IATI data."
+        )
+        return criterion
+
+    needle = _fold_text(organisation)
+    refs = _folded(orgs["org_ref"])
+    names = _folded(orgs["org_name"])
+
+    matches = orgs[refs == needle]
+    match_kind = "exact reference"
+    if matches.empty:
+        matches = orgs[names == needle]
+        match_kind = "exact name"
+    if matches.empty:
+        substring_hits = names.str.contains(needle, regex=False)
+        close_names = difflib.get_close_matches(
+            needle, names.unique().tolist(), n=5, cutoff=0.85
+        )
+        matches = orgs[substring_hits | names.isin(close_names)]
+        match_kind = "name substring or similar name"
+
+    if matches.empty:
+        criterion.error = (
+            f"No participating organisation matches '{organisation}'. "
+            "Available organisations: "
+            + _available_preview(
+                name or ref
+                for name, ref in zip(orgs["org_name"], orgs["org_ref"])
+            )
+        )
+        return criterion
+
+    matched = matches.copy()
+    matched["display"] = matched["org_name"].where(
+        matched["org_name"] != "", matched["org_ref"]
+    )
+    has_role = matched["role"] != ""
+    matched.loc[has_role, "display"] = (
+        matched.loc[has_role, "display"]
+        + " (role: "
+        + matched.loc[has_role, "role"].map(h.organisation_role_label)
+        + ")"
+    )
+    details = (
+        matched.groupby("activity_identifier")["display"]
+        .apply(lambda values: ", ".join(sorted(set(values))))
+        .to_dict()
+    )
+    criterion.ids = set(details)
+    criterion.details = details
+    criterion.match_kind = match_kind
+    criterion.resolved = ", ".join(
+        sorted(set(
+            matched["org_name"].where(
+                matched["org_name"] != "", matched["org_ref"]
+            )
+        ))
+    )
+    return criterion
+
+
+def _resolve_status(status: str, activities: pd.DataFrame) -> _Criterion:
+    """Resolve an activity status given as a codelist code or label."""
+    criterion = _Criterion("activity_status", "activity status", status)
+    codes = _stripped(activities["activity_status"])
+    ids = _stripped(activities["activity_identifier"])
+    needle = _fold_text(status).replace("-", " ")
+
+    present = sorted({code for code in codes.unique() if code})
+    labels = {code: h.activity_status_label(code) for code in present}
+    selected = [
+        code for code in present
+        if _fold_text(code) == needle or _fold_text(labels[code]) == needle
+    ]
+    match_kind = "exact code or label"
+    if not selected:
+        selected = [
+            code for code in present
+            if needle and needle in _fold_text(labels[code])
+        ]
+        match_kind = "label substring"
+
+    if not selected:
+        criterion.error = (
+            f"No activity status matches '{status}'. Available statuses: "
+            + "; ".join(f"{code} ({labels[code]})" for code in present)
+        )
+        return criterion
+
+    mask = codes.isin(selected)
+    criterion.ids = set(ids[mask])
+    criterion.match_kind = match_kind
+    criterion.resolved = ", ".join(
+        f"{code} ({labels[code]})" for code in selected
+    )
+    return criterion
+
+
+def _resolve_text(text: str, activities: pd.DataFrame) -> _Criterion:
+    """Match free text against the activity title and description."""
+    criterion = _Criterion("text_contains", "text", text)
+    needle = _fold_text(text)
+    ids = _stripped(activities["activity_identifier"])
+    mask = _folded(activities["title"]).str.contains(needle, regex=False)
+    if "description" in activities.columns:
+        mask = mask | _folded(activities["description"]).str.contains(
+            needle, regex=False
+        )
+    criterion.ids = set(ids[mask])
+    criterion.match_kind = "title or description substring"
+    return criterion
+
+
+def _resolve_criteria(
+    activities: pd.DataFrame,
+    country: str = "",
+    sector: str = "",
+    organisation: str = "",
+    status: str = "",
+    text: str = "",
+) -> list[_Criterion]:
+    """Resolve each supplied (non-empty) filter value, in a fixed order."""
+    criteria: list[_Criterion] = []
+    if country:
+        criteria.append(_resolve_country(country, activities))
+    if sector:
+        criteria.append(_resolve_sector(sector))
+    if organisation:
+        criteria.append(_resolve_organisation(organisation))
+    if status:
+        criteria.append(_resolve_status(status, activities))
+    if text:
+        criteria.append(_resolve_text(text, activities))
+    return criteria
+
+
+def _filter_table(shown: pd.DataFrame, criteria: list[_Criterion]):
+    """Build the activities table with one extra column per detail filter.
+
+    Country columns are shown when filtering by country or when neither
+    sector nor organisation columns would otherwise identify the rows.
+    """
+    by_key = {criterion.key: criterion for criterion in criteria}
+    columns = [
+        ("activity_identifier", "IATI identifier"),
+        ("title", "Title"),
+        ("activity_status", "Status"),
+    ]
+    has_detail = "sector" in by_key or "participating_org" in by_key
+    if "recipient_country" in by_key or not has_detail:
+        columns += [
+            ("recipient_country_code", "Country code"),
+            ("recipient_country_name", "Recipient country"),
+        ]
+    if "sector" in by_key:
+        shown["matched_sectors"] = shown["activity_identifier"].map(
+            by_key["sector"].details
+        )
+        columns.append(("matched_sectors", "Sector"))
+    if "participating_org" in by_key:
+        shown["matched_orgs"] = shown["activity_identifier"].map(
+            by_key["participating_org"].details
+        )
+        columns.append(("matched_orgs", "Participating organisation"))
+
+    rows = shown[[column for column, _ in columns]].fillna("")
+    return h.build_table(
+        rows.to_dict("records"),
+        columns,
+        formatters={"activity_status": h.activity_status_label},
+    )
+
+
+def _filter_notes(criteria: list[_Criterion]) -> list[str]:
+    """Explain, per criterion, how the input was matched and to what."""
+    notes = []
+    for criterion in criteria:
+        if criterion.key == "text_contains":
+            continue
+        note = f"Matched by {criterion.match_kind}"
+        if criterion.resolved:
+            note += (
+                f": {criterion.label} '{criterion.value}' resolved to "
+                f"{criterion.resolved}"
+            )
+        notes.append(note + ".")
+    if "participating_org" in {criterion.key for criterion in criteria}:
+        notes.append(
+            "The matched organisation names, as published, are in the "
+            "table."
+        )
+    return notes
+
+
+def filter_activities(
+    country: str | None = None,
+    sector: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
+    text: str | None = None,
+    limit: int = 10,
+    tool_name: str = "filter_activities",
+):
+    """Filter IATI activities by any combination of criteria.
+
+    Every supplied criterion is resolved against the loaded data first
+    (code, exact name, alias or fuzzy fallback, reported per criterion);
+    activities must satisfy all of them. When one criterion resolves to
+    nothing, the response says which one and lists the values available
+    so the caller can retry with an exact value.
+
+    `tool_name` lets the single-criterion wrappers keep their own glossary
+    terms in the response (see `TOOL_GLOSSARY_TERMS`).
+    """
+    def _clean(value) -> str:
+        return "" if value is None else str(value).strip()
+
+    country = _clean(country)
+    sector = _clean(sector)
+    organisation = _clean(organisation)
+    status = _clean(status)
+    text = _clean(text)
+
+    if not any((country, sector, organisation, status, text)):
         return h.empty_result(
-            "A recipient country code or name is required.",
+            "At least one filter is required: country, sector, "
+            "organisation, status or text.",
             source_url=xml_source(),
         )
 
@@ -1603,62 +2002,54 @@ def filter_activities_by_country(
             source_url=xml_source(),
         )
 
-    activities = activities_df().copy()
-
-    country_codes = (
-        activities["recipient_country_code"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
+    activities = (
+        activities_df()
+        .drop_duplicates(subset=["activity_identifier"])
+        .copy()
     )
-    country_names = _folded(
-        activities["recipient_country_name"].fillna("").astype(str).str.strip()
+    activities["activity_identifier"] = _stripped(
+        activities["activity_identifier"]
     )
 
-    matches = activities[
-        (country_codes == country.upper())
-        | (country_names == _fold_text(country))
-    ].drop_duplicates(subset=["activity_identifier"])
+    criteria = _resolve_criteria(
+        activities,
+        country=country,
+        sector=sector,
+        organisation=organisation,
+        status=status,
+        text=text,
+    )
+    for criterion in criteria:
+        if criterion.error:
+            return h.empty_result(criterion.error, source_url=xml_source())
 
-    total = len(matches)
+    selected_ids = set.intersection(*(c.ids for c in criteria))
+    phrases = {
+        "recipient_country": f"for recipient country '{country}'",
+        "sector": f"for sector '{sector}'",
+        "participating_org": (
+            f"with participating organisation '{organisation}'"
+        ),
+        "activity_status": f"with activity status '{status}'",
+        "text_contains": f"with '{text}' in the title or description",
+    }
+    description = " and ".join(phrases[c.key] for c in criteria)
 
-    if matches.empty:
+    all_matches = activities[
+        activities["activity_identifier"].isin(selected_ids)
+    ]
+    total = len(all_matches)
+    if all_matches.empty:
         return h.empty_result(
-            f"No IATI activities were found for recipient country "
-            f"'{country}'.",
+            f"No IATI activities were found {description}.",
             source_url=xml_source(),
         )
 
-    shown = matches.head(limit).copy()
-
-    rows = shown[
-        [
-            "activity_identifier",
-            "title",
-            "activity_status",
-            "recipient_country_code",
-            "recipient_country_name",
-        ]
-    ].fillna("")
-
-    table = h.build_table(
-        rows.to_dict("records"),
-        [
-            ("activity_identifier", "IATI identifier"),
-            ("title", "Title"),
-            ("activity_status", "Status"),
-            ("recipient_country_code", "Country code"),
-            ("recipient_country_name", "Recipient country"),
-        ],
-        formatters={
-            "activity_status": h.activity_status_label,
-        },
-    )
-
-    summary = (
-        f"Found {total} IATI activity(ies) for recipient country "
-        f"'{country}'."
+    shown = all_matches.head(limit).copy()
+    table = _filter_table(shown, criteria)
+    summary = " ".join(
+        [f"Found {total} IATI activity(ies) {description}."]
+        + _filter_notes(criteria)
     )
 
     return h.text_result(
@@ -1668,8 +2059,68 @@ def filter_activities_by_country(
         tool_name=tool_name,
         total=total,
         shown=len(shown),
-        filters={"recipient_country": country},
+        filters={criterion.key: criterion.value for criterion in criteria},
         limit=limit,
+    )
+
+
+def filter_activities_by_country(
+    country: str,
+    limit: int = 10,
+):
+    """Filter IATI activities by recipient country code or name.
+
+    Thin wrapper over `filter_activities(country=...)`.
+    """
+    if not str(country).strip():
+        return h.empty_result(
+            "A recipient country code or name is required.",
+            source_url=xml_source(),
+        )
+    return filter_activities(
+        country=country,
+        limit=limit,
+        tool_name="filter_activities_by_country",
+    )
+
+
+def filter_activities_by_sector(
+    sector: str,
+    limit: int = 10,
+):
+    """Filter IATI activities by sector code or name.
+
+    Thin wrapper over `filter_activities(sector=...)`.
+    """
+    if not str(sector).strip():
+        return h.empty_result(
+            "A sector code or name is required.",
+            source_url=xml_source(),
+        )
+    return filter_activities(
+        sector=sector,
+        limit=limit,
+        tool_name="filter_activities_by_sector",
+    )
+
+
+def filter_activities_by_participating_org(
+    organisation: str,
+    limit: int = 10,
+):
+    """Filter IATI activities by participating organisation.
+
+    Thin wrapper over `filter_activities(organisation=...)`.
+    """
+    if not str(organisation).strip():
+        return h.empty_result(
+            "A participating organisation reference or name is required.",
+            source_url=xml_source(),
+        )
+    return filter_activities(
+        organisation=organisation,
+        limit=limit,
+        tool_name="filter_activities_by_participating_org",
     )
 
 
@@ -1741,346 +2192,6 @@ def list_sectors(limit: int = 100):
         shown=len(shown),
         limit=limit,
         charts=_sector_count_charts(shown),
-    )
-
-
-def filter_activities_by_sector(
-    sector: str,
-    limit: int = 10,
-):
-    """Filter IATI activities by sector code or name.
-
-    Exact code matches win, then exact names, then a case-insensitive
-    substring of the name. When nothing matches, the response lists the
-    sectors available in the loaded data.
-    """
-    tool_name = "filter_activities_by_sector"
-    selected = str(sector).strip()
-
-    if not selected:
-        return h.empty_result(
-            "A sector code or name is required.",
-            source_url=xml_source(),
-        )
-
-    if limit < 1:
-        return h.empty_result(
-            "The result limit must be greater than zero.",
-            source_url=xml_source(),
-        )
-
-    sectors = _named_sectors(sectors_df())
-    sectors = sectors[
-        (sectors["sector_code"] != "")
-        | (sectors["sector_name"] != "")
-    ]
-
-    if sectors.empty:
-        return h.empty_result(
-            "No sectors were found in the loaded IATI data.",
-            source_url=xml_source(),
-        )
-
-    needle = _fold_text(selected)
-    codes = _folded(sectors["sector_code"])
-    names = _folded(sectors["sector_name"])
-
-    matches = sectors[codes == needle]
-    match_kind = "exact code"
-    if matches.empty:
-        matches = sectors[names == needle]
-        match_kind = "exact name"
-    if matches.empty:
-        matches = sectors[
-            names.str.contains(needle, regex=False)
-        ]
-        match_kind = "name substring"
-
-    if matches.empty:
-        available = sorted({
-            name or code
-            for name, code in zip(
-                sectors["sector_name"],
-                sectors["sector_code"],
-            )
-        })
-        preview = "; ".join(available[:30])
-        suffix = "; ..." if len(available) > 30 else ""
-        return h.empty_result(
-            f"No sector matches '{selected}'. Available sectors: "
-            f"{preview}{suffix}",
-            source_url=xml_source(),
-        )
-
-    matched = matches.copy()
-    matched["sector_display"] = matched["sector_name"].where(
-        matched["sector_name"] != "",
-        matched["sector_code"],
-    )
-    has_both = (
-        (matched["sector_code"] != "")
-        & (matched["sector_name"] != "")
-    )
-    matched.loc[has_both, "sector_display"] = (
-        matched.loc[has_both, "sector_name"]
-        + " ("
-        + matched.loc[has_both, "sector_code"]
-        + ")"
-    )
-
-    sectors_by_activity = (
-        matched.groupby("activity_identifier")["sector_display"]
-        .apply(
-            lambda values: ", ".join(sorted(set(values)))
-        )
-    )
-
-    activities = (
-        activities_df()
-        .drop_duplicates(subset=["activity_identifier"])
-        .copy()
-    )
-    activity_ids = (
-        activities["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["matched_sectors"] = activity_ids.map(
-        sectors_by_activity
-    )
-
-    all_matches = activities[
-        activities["matched_sectors"].notna()
-    ]
-    total = len(all_matches)
-
-    if all_matches.empty:
-        return h.empty_result(
-            f"No IATI activities were found for sector '{selected}'.",
-            source_url=xml_source(),
-        )
-
-    shown = all_matches.head(limit)
-
-    rows = shown[
-        [
-            "activity_identifier",
-            "title",
-            "activity_status",
-            "matched_sectors",
-        ]
-    ].fillna("")
-
-    table = h.build_table(
-        rows.to_dict("records"),
-        [
-            ("activity_identifier", "IATI identifier"),
-            ("title", "Title"),
-            ("activity_status", "Status"),
-            ("matched_sectors", "Sector"),
-        ],
-        formatters={
-            "activity_status": h.activity_status_label,
-        },
-    )
-
-    summary = (
-        f"Found {total} IATI activity(ies) for sector "
-        f"'{selected}'. Matched by {match_kind}."
-    )
-
-    return h.text_result(
-        summary,
-        source_url=xml_source(),
-        table=table,
-        tool_name=tool_name,
-        total=total,
-        shown=len(shown),
-        filters={"sector": selected},
-        limit=limit,
-    )
-
-
-def filter_activities_by_participating_org(
-    organisation: str,
-    limit: int = 10,
-):
-    """Filter IATI activities by participating organisation.
-
-    Exact organisation-reference matches win, then exact names, then a
-    case-insensitive substring of the name. When nothing matches, the
-    response lists the organisations available in the loaded data.
-    """
-    tool_name = "filter_activities_by_participating_org"
-    selected = str(organisation).strip()
-
-    if not selected:
-        return h.empty_result(
-            "A participating organisation reference or name is required.",
-            source_url=xml_source(),
-        )
-
-    if limit < 1:
-        return h.empty_result(
-            "The result limit must be greater than zero.",
-            source_url=xml_source(),
-        )
-
-    orgs = participating_orgs_df().copy()
-    for column in (
-        "activity_identifier",
-        "org_ref",
-        "org_name",
-        "role",
-    ):
-        orgs[column] = (
-            orgs[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-    orgs = orgs[
-        (orgs["org_ref"] != "") | (orgs["org_name"] != "")
-    ]
-
-    if orgs.empty:
-        return h.empty_result(
-            "No participating organisations were found in the loaded "
-            "IATI data.",
-            source_url=xml_source(),
-        )
-
-    needle = _fold_text(selected)
-    refs = _folded(orgs["org_ref"])
-    names = _folded(orgs["org_name"])
-
-    matches = orgs[refs == needle]
-    match_kind = "exact reference"
-    if matches.empty:
-        matches = orgs[names == needle]
-        match_kind = "exact name"
-    if matches.empty:
-        # Published names are often misspelled (missing letters, wrong
-        # vowels), so the fallback combines substring containment with
-        # close-match similarity on full names; substring alone would
-        # shadow the intended organisation with a longer-named one.
-        substring_hits = names.str.contains(needle, regex=False)
-        close_names = difflib.get_close_matches(
-            needle,
-            names.unique().tolist(),
-            n=5,
-            cutoff=0.85,
-        )
-        matches = orgs[
-            substring_hits | names.isin(close_names)
-        ]
-        match_kind = "name substring or similar name"
-
-    if matches.empty:
-        available = sorted({
-            name or ref
-            for name, ref in zip(
-                orgs["org_name"],
-                orgs["org_ref"],
-            )
-        })
-        preview = "; ".join(available[:30])
-        suffix = "; ..." if len(available) > 30 else ""
-        return h.empty_result(
-            f"No participating organisation matches '{selected}'. "
-            f"Available organisations: {preview}{suffix}",
-            source_url=xml_source(),
-        )
-
-    matched = matches.copy()
-    matched["org_display"] = matched["org_name"].where(
-        matched["org_name"] != "",
-        matched["org_ref"],
-    )
-    has_role = matched["role"] != ""
-    matched.loc[has_role, "org_display"] = (
-        matched.loc[has_role, "org_display"]
-        + " (role: "
-        + matched.loc[has_role, "role"].map(
-            h.organisation_role_label
-        )
-        + ")"
-    )
-
-    orgs_by_activity = (
-        matched.groupby("activity_identifier")["org_display"]
-        .apply(
-            lambda values: ", ".join(sorted(set(values)))
-        )
-    )
-
-    activities = (
-        activities_df()
-        .drop_duplicates(subset=["activity_identifier"])
-        .copy()
-    )
-    activity_ids = (
-        activities["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["matched_orgs"] = activity_ids.map(
-        orgs_by_activity
-    )
-
-    all_matches = activities[
-        activities["matched_orgs"].notna()
-    ]
-    total = len(all_matches)
-
-    if all_matches.empty:
-        return h.empty_result(
-            "No IATI activities were found for participating "
-            f"organisation '{selected}'.",
-            source_url=xml_source(),
-        )
-
-    shown = all_matches.head(limit)
-
-    rows = shown[
-        [
-            "activity_identifier",
-            "title",
-            "activity_status",
-            "matched_orgs",
-        ]
-    ].fillna("")
-
-    table = h.build_table(
-        rows.to_dict("records"),
-        [
-            ("activity_identifier", "IATI identifier"),
-            ("title", "Title"),
-            ("activity_status", "Status"),
-            ("matched_orgs", "Participating organisation"),
-        ],
-        formatters={
-            "activity_status": h.activity_status_label,
-        },
-    )
-
-    summary = (
-        f"Found {total} IATI activity(ies) with participating "
-        f"organisation '{selected}'. Matched by {match_kind}; the "
-        "matched organisation names, as published, are in the table."
-    )
-
-    return h.text_result(
-        summary,
-        source_url=xml_source(),
-        table=table,
-        tool_name=tool_name,
-        total=total,
-        shown=len(shown),
-        filters={"participating_org": selected},
-        limit=limit,
     )
 
 

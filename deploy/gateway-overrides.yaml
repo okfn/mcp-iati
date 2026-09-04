@@ -17,7 +17,7 @@
 
 en:
   nav:
-    brand: IATI Chat
+    brand: Open Data AI Explorer
   landing:
     title: Ask the IATI data
     tagline: 'Answers built only from official data in public IATI files: activities and transactions published under the IATI standard for development cooperation. Every reply comes from a tool call over those files, never from the model''s own knowledge.'
@@ -27,7 +27,7 @@ en:
 
 es:
   nav:
-    brand: IATI Chat
+    brand: Open Data AI Explorer
   landing:
     title: Preguntale a los datos IATI
     tagline: 'Respuestas construidas solo con datos oficiales de archivos publicos IATI: actividades y transacciones publicadas bajo el estandar IATI de cooperacion para el desarrollo. Cada respuesta sale de una herramienta sobre esos archivos, nunca del conocimiento propio del modelo.'
@@ -37,7 +37,7 @@ es:
 
 pt:
   nav:
-    brand: IATI Chat
+    brand: Open Data AI Explorer
   landing:
     title: Pergunte aos dados IATI
     tagline: 'Respostas construidas apenas com dados oficiais de arquivos publicos IATI: atividades e transacoes publicadas sob o padrao IATI de cooperacao para o desenvolvimento. Cada resposta vem de uma ferramenta sobre esses arquivos, nunca do conhecimento proprio do modelo.'

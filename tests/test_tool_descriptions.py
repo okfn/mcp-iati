@@ -21,6 +21,7 @@ def test_register_tools_adds_expected_tools(fake_mcp):
         "date_coverage",
         "list_category_values",
         "search_activities",
+        "filter_activities",
         "list_activity_statuses",
         "list_reporting_organisations",
         "list_participating_organisations",

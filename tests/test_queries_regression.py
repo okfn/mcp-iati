@@ -762,7 +762,8 @@ def test_filter_activities_by_country_returns_clear_empty_result(
     result = queries.filter_activities_by_country("UY")
 
     assert result.content[0].text == (
-        "No IATI activities were found for recipient country 'UY'."
+        "No recipient country matches 'UY'. Available recipient "
+        "countries: AR (Argentina); BR (Brazil)"
     )
     assert "table" not in result.structuredContent
     _assert_data_source_only(
@@ -2527,3 +2528,135 @@ def test_list_category_values_reports_unavailable_optional_field(
         "Category 'organisation_type' is not available"
         in result.content[0].text
     )
+
+
+def test_filter_activities_combines_country_and_sector(seed_cache):
+    result = queries.filter_activities(country="BR", sector="health")
+    text = _text(result)
+
+    assert text.startswith(
+        "Found 1 IATI activity(ies) for recipient country 'BR' and for "
+        "sector 'health'."
+    )
+    assert "Matched by ISO code: recipient country 'BR' resolved to BR (Brazil)." in text
+    assert "Matched by name substring: sector 'health' resolved to Basic health care (12220)." in text
+    assert "Applied filters: recipient_country=BR, sector=health" in text
+    assert result.structuredContent["table"] == [
+        [
+            "IATI identifier",
+            "Title",
+            "Status",
+            "Country code",
+            "Recipient country",
+            "Sector",
+        ],
+        [
+            "IATI-002",
+            "Health programme",
+            "Completion",
+            "BR",
+            "Brazil",
+            "Basic health care (12220)",
+        ],
+    ]
+    _assert_data_and_glossary_sources(result, seed_cache.source)
+
+
+def test_filter_activities_intersection_can_be_empty(seed_cache):
+    result = queries.filter_activities(country="AR", sector="health")
+
+    assert _text(result) == (
+        "No IATI activities were found for recipient country 'AR' and "
+        "for sector 'health'."
+    )
+    assert "table" not in result.structuredContent
+
+
+@pytest.mark.parametrize(
+    "country, kind",
+    [
+        ("Brasil", "translated name"),
+        ("Brésil", "translated name"),
+        ("brazil", "exact name"),
+        ("br", "ISO code"),
+        ("Argentine", "translated name"),
+    ],
+)
+def test_filter_activities_resolves_country_names_in_other_languages(
+    seed_cache,
+    country,
+    kind,
+):
+    result = queries.filter_activities(country=country)
+    text = _text(result)
+
+    assert f"Matched by {kind}: recipient country '{country}' resolved to " in text
+    assert "Total results: 1" in text
+
+
+def test_filter_activities_reports_unresolved_criterion(seed_cache):
+    # The sector resolves, the country does not: the response names the
+    # failing criterion and lists the available values for a retry.
+    result = queries.filter_activities(country="Uruguay", sector="health")
+    text = _text(result)
+
+    assert text == (
+        "No recipient country matches 'Uruguay' (ISO code UY). Available "
+        "recipient countries: AR (Argentina); BR (Brazil)"
+    )
+    assert "table" not in result.structuredContent
+
+
+@pytest.mark.parametrize("status", ["3", "Completion", "completion"])
+def test_filter_activities_by_status_code_or_label(seed_cache, status):
+    result = queries.filter_activities(status=status)
+    text = _text(result)
+
+    assert "IATI-002" in text
+    assert "IATI-001" not in text
+    assert (
+        f"Matched by exact code or label: activity status '{status}' "
+        "resolved to 3 (Completion)."
+    ) in text
+    assert result.structuredContent["table"][0] == [
+        "IATI identifier",
+        "Title",
+        "Status",
+        "Country code",
+        "Recipient country",
+    ]
+
+
+def test_filter_activities_rejects_unknown_status(seed_cache):
+    result = queries.filter_activities(status="banana")
+
+    assert _text(result) == (
+        "No activity status matches 'banana'. Available statuses: "
+        "2 (Implementation); 3 (Completion)"
+    )
+
+
+def test_filter_activities_text_with_organisation(seed_cache):
+    result = queries.filter_activities(
+        text="transport",
+        organisation="Development Bank",
+    )
+    text = _text(result)
+
+    assert (
+        "Found 1 IATI activity(ies) with participating organisation "
+        "'Development Bank' and with 'transport' in the title or "
+        "description."
+    ) in text
+    assert "Applied filters: participating_org=Development Bank, text_contains=transport" in text
+    assert "Development Bank (role: Funding)" in text
+
+
+def test_filter_activities_requires_a_criterion(seed_cache):
+    result = queries.filter_activities()
+
+    assert _text(result) == (
+        "At least one filter is required: country, sector, organisation, "
+        "status or text."
+    )
+    assert "table" not in result.structuredContent

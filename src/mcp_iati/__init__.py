@@ -13,6 +13,24 @@ def register_tools(mcp):
     _register_iati_tools(mcp)
 
 
+def register_resources(mcp):
+    """Register official IATI reference material for MCP clients."""
+
+    @mcp.resource(
+        "references/iati-standard",
+        name="IATI Standard",
+        description="Official documentation for the IATI data standard.",
+        mime_type="text/uri-list",
+        annotations={
+            "publisher": "IATI",
+            "language": "en",
+            "showcase_url": terms.IATI_STANDARD_URL,
+        },
+    )
+    def iati_standard() -> str:
+        return terms.IATI_STANDARD_URL + "\n"
+
+
 def _register_iati_tools(mcp):  # noqa: C901
     """IATI - tools over the international aid transparency open data
     standard (https://iatistandard.org/).

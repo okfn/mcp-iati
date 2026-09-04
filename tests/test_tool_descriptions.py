@@ -47,6 +47,15 @@ def test_plugin_info_has_user_facing_display_name(fake_mcp):
     assert fake_mcp.plugin_info["display_name"] == "Explore IATI Data"
 
 
+def test_plugin_info_describes_current_limitations(fake_mcp):
+    register_tools(fake_mcp)
+
+    limitations = fake_mcp.plugin_info["limitations"]
+    assert "Only answers questions supported by the currently loaded IATI file." in limitations
+    assert "Cannot fill data gaps or infer information that publishers did not provide." in limitations
+    assert len(limitations) == 3
+
+
 def test_plugin_instructions_request_only_relevant_terms(fake_mcp):
     register_tools(fake_mcp)
 

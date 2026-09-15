@@ -63,7 +63,6 @@ def test_plugin_sample_questions_cover_main_use_cases(fake_mcp):
 
     questions = fake_mcp.plugin_info["sample_questions"]
     assert "What does this IATI file contain?" in questions
-    assert not any("XI-IATI-IADB-BR-L1231" in question for question in questions)
 
 
 def test_no_tool_disponible_returns_clear_fallback_message(fake_mcp):

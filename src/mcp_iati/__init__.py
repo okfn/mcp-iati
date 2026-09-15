@@ -57,7 +57,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "returned by the tools. When the user asks what a term means, call "
             "define_term. If a question falls outside the tools' scope, call "
             "no_tool_disponible and explain why. Some tools also return a "
-            "chart that the interface renders on screen next to the table."
+            "chart that the interface renders on screen next to the table. "
             "When the user asks for a chart, graph or plot, call the matching tool; "
             "never draw charts yourself in ASCII, SVG or code. "
             "When a question combines criteria (country and sector, "
@@ -78,6 +78,9 @@ def _register_iati_tools(mcp):  # noqa: C901
             "Which sectors are present in this IATI file?",
             "Which health activities in Brazil are still in implementation?",
             "Which organisations participate most often in this IATI file?",
+            "Give me a summary of activity 'Improve Road Access to Small Municipalities' (ID: XI-IATI-IADB-BR-L1231)",
+            "Which organisations participate in activity 'Improve Road Access to Small Municipalities' (ID: XI-IATI-IADB-BR-L1231)?",
+            "Show the transactions for activity 'Improve Road Access to Small Municipalities' (ID: XI-IATI-IADB-BR-L1231)",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
             "How much was committed by sector?",

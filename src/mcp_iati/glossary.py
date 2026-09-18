@@ -386,6 +386,14 @@ TOOL_GLOSSARY_TERMS = {
         "disbursement",
         "default currency",
     ),
+    "count_activities_by": (
+        "IATI activity",
+        "recipient country or region",
+        "sector",
+        "vocabulary",
+        "participating organisation",
+        "activity status",
+    ),
 }
 
 

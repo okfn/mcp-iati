@@ -38,6 +38,7 @@ def test_register_tools_adds_expected_tools(fake_mcp):
         "transaction_totals_by_sector",
         "transaction_totals_by_country",
         "top_activities_by_amount",
+        "count_activities_by",
         "define_term",
     ]
 

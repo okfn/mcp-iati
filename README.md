@@ -35,9 +35,11 @@ Available tools:
 - `list_recipient_countries()`: list recipient countries and activity counts.
 - `filter_activities_by_country(country, limit=10)`: filter activities by
   recipient-country code or name.
-- `list_sectors(limit=100)`: list sector codes, names and vocabularies.
-  Missing names for OECD DAC codes (vocabulary 1) are filled in from the
-  standard DAC codelist.
+- `list_sectors(limit=100, country=None, organisation=None, status=None)`:
+  list sector codes, names and vocabularies with activity counts, optionally
+  restricted to the activities matching the filters ("which sectors do the
+  activities in Argentina cover?"). Missing names for OECD DAC codes
+  (vocabulary 1) are filled in from the standard DAC codelist.
 - `filter_activities_by_sector(sector, limit=10)`: filter activities by
   sector code or name (exact code first, then exact name, then name
   substring); on no match, the response lists the sectors available in the
@@ -58,19 +60,33 @@ while responses always show the names exactly as published.
   classifications and financial totals per transaction type.
 - `activity_transactions(iati_identifier, limit=50)`: list an activity's
   transactions in chronological order.
-- `transaction_totals_by_year(year_from=None, year_to=None)`: group
-  commitment and disbursement totals by year, transaction type and currency,
-  while ignoring invalid dates/values and using the activity default currency
-  when a transaction currency is missing.
+- `transaction_totals_by_year(year_from=None, year_to=None, country=None, sector=None, organisation=None, status=None)`:
+  group commitment and disbursement totals by year, transaction type and
+  currency, while ignoring invalid dates/values and using the activity
+  default currency when a transaction currency is missing.
 - `transaction_totals_by_organisation(limit=50)`: group commitments and
   disbursements by reporting organisation, keeping transaction types and
   currencies separate and clarifying that the reporting organisation is the
   publisher of the activity data, not necessarily the funder or implementer.
-- `transaction_totals_by_country(transaction_type="2", currency=None, limit=50)`: group commitments and disbursements by recipient country, keeping transaction types and currencies separate and using a clear fallback label when country details are missing.
-- `transaction_totals_by_sector(transaction_type="2", currency=None, vocabulary=None, limit=50)`: allocate commitment or disbursement totals across sectors using the published percentages, keeping vocabularies and currencies separate and adding an `Unallocated sector` bucket when percentages do not total 100%.
-- `top_activities_by_amount(transaction_type="2", currency=None, limit=10)`: 
+- `transaction_totals_by_country(transaction_type="2", currency=None, limit=50, sector=None, organisation=None, status=None)`: group commitments and disbursements by recipient country, keeping transaction types and currencies separate and using a clear fallback label when country details are missing.
+- `transaction_totals_by_sector(transaction_type="2", currency=None, vocabulary=None, limit=50, country=None, organisation=None, status=None)`: allocate commitment or disbursement totals across sectors using the published percentages, keeping vocabularies and currencies separate and adding an `Unallocated sector` bucket when percentages do not total 100%.
+- `top_activities_by_amount(transaction_type="2", currency=None, limit=10, country=None, sector=None, organisation=None, status=None)`:
   list activities with the highest commitment or disbursement totals, ranked
-  independently for each currency.
+  independently for each currency ("top 5 activities by commitment in
+  Argentina" is `country="AR", limit=5`).
+- `count_activities_by(group_by, country=None, sector=None, organisation=None, status=None, limit=50)`:
+  the generic group-by: number of distinct activities per value of one
+  dimension (`country`, `sector`, `organisation` or `status`), inside the
+  optional filters on the other dimensions. "Sectors per country" is
+  `count_activities_by("sector", country="AR")`; "countries where
+  organisation X participates" is `count_activities_by("country",
+  organisation="X")`. Returns a table and a bar chart.
+
+The `country`, `sector`, `organisation` and `status` filters of the
+aggregation tools above are resolved exactly like in `filter_activities`
+(ISO code or name in several languages, sector code or name, organisation
+reference or name, status code or label), and an unresolved value returns
+the same "available values" message instead of an empty total.
 - `define_term(term)`: explain an IATI term using the central glossary.
 
 **Guiding principle:** these tools only use generic IATI standard fields
@@ -247,6 +263,7 @@ answer (same contract as the Uruguay energy-balance plugin):
 | `list_sectors` | bars of activities per sector, one chart per vocabulary |
 | `list_participating_organisations` | bars of activities per organisation (the reporting organisation is left out of the chart) |
 | `top_activities_by_amount` | bars of the largest activities, one chart per currency |
+| `count_activities_by` | bars of activities per group value (sectors: one chart per vocabulary) |
 | `activity_transactions` | cumulative lines per transaction type over time |
 
 Currencies and sector vocabularies are never mixed in one chart, charts

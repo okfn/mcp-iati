@@ -97,6 +97,11 @@ DATA_TOOLS = [
         {"sector": "TR"},
     ),
     (
+        "count_activities_by",
+        queries.count_activities_by,
+        {"group_by": "sector", "status": "implementation"},
+    ),
+    (
         "filter_activities_by_participating_org",
         queries.filter_activities_by_participating_org,
         {"organisation": "ORG-010"},

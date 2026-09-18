@@ -35,9 +35,11 @@ Available tools:
 - `list_recipient_countries()`: list recipient countries and activity counts.
 - `filter_activities_by_country(country, limit=10)`: filter activities by
   recipient-country code or name.
-- `list_sectors(limit=100)`: list sector codes, names and vocabularies.
-  Missing names for OECD DAC codes (vocabulary 1) are filled in from the
-  standard DAC codelist.
+- `list_sectors(limit=100, country=None, organisation=None, status=None)`:
+  list sector codes, names and vocabularies with activity counts, optionally
+  restricted to the activities matching the filters ("which sectors do the
+  activities in Argentina cover?"). Missing names for OECD DAC codes
+  (vocabulary 1) are filled in from the standard DAC codelist.
 - `filter_activities_by_sector(sector, limit=10)`: filter activities by
   sector code or name (exact code first, then exact name, then name
   substring); on no match, the response lists the sectors available in the
@@ -58,19 +60,33 @@ while responses always show the names exactly as published.
   classifications and financial totals per transaction type.
 - `activity_transactions(iati_identifier, limit=50)`: list an activity's
   transactions in chronological order.
-- `transaction_totals_by_year(year_from=None, year_to=None)`: group
-  commitment and disbursement totals by year, transaction type and currency,
-  while ignoring invalid dates/values and using the activity default currency
-  when a transaction currency is missing.
+- `transaction_totals_by_year(year_from=None, year_to=None, country=None, sector=None, organisation=None, status=None)`:
+  group commitment and disbursement totals by year, transaction type and
+  currency, while ignoring invalid dates/values and using the activity
+  default currency when a transaction currency is missing.
 - `transaction_totals_by_organisation(limit=50)`: group commitments and
   disbursements by reporting organisation, keeping transaction types and
   currencies separate and clarifying that the reporting organisation is the
   publisher of the activity data, not necessarily the funder or implementer.
-- `transaction_totals_by_country(transaction_type="2", currency=None, limit=50)`: group commitments and disbursements by recipient country, keeping transaction types and currencies separate and using a clear fallback label when country details are missing.
-- `transaction_totals_by_sector(transaction_type="2", currency=None, vocabulary=None, limit=50)`: allocate commitment or disbursement totals across sectors using the published percentages, keeping vocabularies and currencies separate and adding an `Unallocated sector` bucket when percentages do not total 100%.
-- `top_activities_by_amount(transaction_type="2", currency=None, limit=10)`: 
+- `transaction_totals_by_country(transaction_type="2", currency=None, limit=50, sector=None, organisation=None, status=None)`: group commitments and disbursements by recipient country, keeping transaction types and currencies separate and using a clear fallback label when country details are missing.
+- `transaction_totals_by_sector(transaction_type="2", currency=None, vocabulary=None, limit=50, country=None, organisation=None, status=None)`: allocate commitment or disbursement totals across sectors using the published percentages, keeping vocabularies and currencies separate and adding an `Unallocated sector` bucket when percentages do not total 100%.
+- `top_activities_by_amount(transaction_type="2", currency=None, limit=10, country=None, sector=None, organisation=None, status=None)`:
   list activities with the highest commitment or disbursement totals, ranked
-  independently for each currency.
+  independently for each currency ("top 5 activities by commitment in
+  Argentina" is `country="AR", limit=5`).
+- `count_activities_by(group_by, country=None, sector=None, organisation=None, status=None, limit=50)`:
+  the generic group-by: number of distinct activities per value of one
+  dimension (`country`, `sector`, `organisation` or `status`), inside the
+  optional filters on the other dimensions. "Sectors per country" is
+  `count_activities_by("sector", country="AR")`; "countries where
+  organisation X participates" is `count_activities_by("country",
+  organisation="X")`. Returns a table and a bar chart.
+
+The `country`, `sector`, `organisation` and `status` filters of the
+aggregation tools above are resolved exactly like in `filter_activities`
+(ISO code or name in several languages, sector code or name, organisation
+reference or name, status code or label), and an unresolved value returns
+the same "available values" message instead of an empty total.
 - `define_term(term)`: explain an IATI term using the central glossary.
 
 **Guiding principle:** these tools only use generic IATI standard fields
@@ -81,15 +97,44 @@ variables below).
 
 ## Where the data comes from
 
-The XML files are official IATI publications of the Inter-American
-Development Bank, **not versioned in this repo**: they are downloaded on
-demand from the bank's own hosting at
+The XML files are official IATI publications, **not versioned in this
+repo**. By default they are the Inter-American Development Bank's, downloaded
+on demand from the bank's own hosting at
 [webimages.iadb.org/iati](https://webimages.iadb.org/iati/iadb-Brazil.xml)
-(the same URLs the [IATI registry](https://dashboard.iatistandard.org/publishers/iadb/)
+(the same URLs the [IATI Dashboard](https://dashboard.iatistandard.org/publishers/iadb/)
 indexes; the IADB refreshes them monthly) into the user data directory
 (`~/.local/share/mcp-iati/xml/` on Linux, via `platformdirs`) and refreshed
 when the configured TTL expires. The `.gitignore` excludes any `*.xml` just
 in case.
+
+Any other publisher works the same way. The public
+[mcp.okfn.org/iati-caf/](https://mcp.okfn.org/iati-caf/) instance serves the
+activity file of [CAF, Development Bank of Latin America and the
+Caribbean](https://dashboard.iatistandard.org/publishers/caf/) through
+`MCP_IATI_DATASET=caf-actfile-46008-2603` (see below).
+
+### Finding a publisher's XML: the IATI Dashboard
+
+The CKAN-based IATI Registry (`iatiregistry.org`) was replaced in December
+2025 by [IATI Account](https://account.iatistandard.org/) (publishers manage
+their files there) and the [IATI Dashboard](https://dashboard.iatistandard.org/)
+(public, read-only metadata about every reporting organisation and dataset).
+The Dashboard exposes a JSON API without authentication:
+
+```bash
+# one publisher and its dataset count
+curl https://dashboard.iatistandard.org/api/reporting-orgs/caf/
+# its datasets, each with the XML URL currently published (`source_url`)
+curl "https://dashboard.iatistandard.org/api/datasets/?reporting_org__short_name=caf"
+# one dataset
+curl https://dashboard.iatistandard.org/api/datasets/caf-actfile-46008-2603/
+```
+
+Some publishers (CAF among them) put the release date in the XML filename,
+so the URL changes with every update. `MCP_IATI_DATASET` takes the dataset
+short name instead and resolves the current `source_url` through that API
+on first use and whenever the cache TTL expires; the last resolved URL is
+kept on disk so a Dashboard outage never stops a running server.
 
 ## How the XML is processed
 
@@ -102,11 +147,15 @@ in case.
    `pandas`, not the XML - this avoids reparsing a multi-MB file on every
    call.
 3. It uses `iadb-Brazil.xml` by default. To use another official IADB
-   country file, a remote URL or a local file, without touching code:
+   country file, a dataset from the IATI Dashboard, a remote URL or a local
+   file, without touching code:
 
    ```bash
    # another IADB country file from https://webimages.iadb.org/iati/
    export MCP_IATI_SAMPLE=iadb-Argentina.xml
+
+   # or a dataset registered in the IATI Dashboard (CAF's activity file)
+   export MCP_IATI_DATASET=caf-actfile-46008-2603
 
    # or any remote IATI XML
    export MCP_IATI_XML_URL=https://example.org/activities.xml
@@ -114,6 +163,9 @@ in case.
    # or any local file (downloads nothing)
    export MCP_IATI_XML_PATH=/path/to/another-iati-file.xml
    ```
+
+   The plugin's sample questions quote a country, a sector and an activity
+   taken from the loaded file, so they stay meaningful for any publisher.
 
 ## Configuration
 
@@ -124,7 +176,9 @@ changing the source, data directory or cache duration.
 | --- | --- | --- |
 | `MCP_IATI_XML_PATH` | Path to a local XML. It has priority and performs no download. | Not set. |
 | `MCP_IATI_XML_URL` | HTTP(S) URL of a remote XML, used when no local path is configured. | Not set. |
-| `MCP_IATI_SAMPLE` | Name of an official IADB country file (from https://webimages.iadb.org/iati/), used when neither a path nor URL is configured. | `iadb-Brazil.xml`. |
+| `MCP_IATI_DATASET` | Short name of a dataset in the IATI Dashboard (e.g. `caf-actfile-46008-2603`); its current XML URL is resolved through the Dashboard API. Used when neither a path nor a URL is configured. | Not set. |
+| `MCP_IATI_DASHBOARD_API_URL` | Base URL of the IATI Dashboard API used to resolve `MCP_IATI_DATASET`. | `https://dashboard.iatistandard.org/api`. |
+| `MCP_IATI_SAMPLE` | Name of an official IADB country file (from https://webimages.iadb.org/iati/), used when no path, URL or dataset is configured. | `iadb-Brazil.xml`. |
 | `MCP_IATI_DATA_DIR` | Directory for downloaded XML files and generated CSV files. | User data directory provided by `platformdirs`. |
 | `MCP_IATI_CACHE_TTL_SECONDS` | Configurable cache duration in seconds; must be greater than zero. | `2592000` (30 days; IATI files are typically updated yearly). |
 | `MCP_IATI_STALE_RETRY_SECONDS` | How long to keep serving a stale CSV cache after a failed refresh before retrying the conversion; must be greater than zero. | `3600` (1 hour). |
@@ -140,8 +194,9 @@ The source precedence is:
 
 1. `MCP_IATI_XML_PATH`.
 2. `MCP_IATI_XML_URL`.
-3. `MCP_IATI_SAMPLE`.
-4. The default `iadb-Brazil.xml` sample.
+3. `MCP_IATI_DATASET`.
+4. `MCP_IATI_SAMPLE`.
+5. The default `iadb-Brazil.xml` sample.
 
 Example:
 
@@ -208,6 +263,7 @@ answer (same contract as the Uruguay energy-balance plugin):
 | `list_sectors` | bars of activities per sector, one chart per vocabulary |
 | `list_participating_organisations` | bars of activities per organisation (the reporting organisation is left out of the chart) |
 | `top_activities_by_amount` | bars of the largest activities, one chart per currency |
+| `count_activities_by` | bars of activities per group value (sectors: one chart per vocabulary) |
 | `activity_transactions` | cumulative lines per transaction type over time |
 
 Currencies and sector vocabularies are never mixed in one chart, charts

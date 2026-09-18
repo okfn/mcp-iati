@@ -12,6 +12,7 @@ def _settings(tmp_path, ttl=604800, stale_retry=3600):
     return SimpleNamespace(
         xml_path=None,
         xml_url=None,
+        dataset=None,
         sample="iadb-Brazil.xml",
         data_dir=tmp_path,
         cache_ttl_seconds=ttl,

@@ -4,6 +4,7 @@ from platformdirs import user_data_path
 from mcp_iati.config import (
     APP_NAME,
     DEFAULT_CACHE_TTL_SECONDS,
+    DEFAULT_DASHBOARD_API_URL,
     DEFAULT_SAMPLE,
     get_settings,
 )
@@ -20,6 +21,8 @@ def test_default_configuration(monkeypatch):
     for variable in (
         "MCP_IATI_XML_PATH",
         "MCP_IATI_XML_URL",
+        "MCP_IATI_DATASET",
+        "MCP_IATI_DASHBOARD_API_URL",
         "MCP_IATI_SAMPLE",
         "MCP_IATI_DATA_DIR",
         "MCP_IATI_CACHE_TTL_SECONDS",
@@ -30,6 +33,8 @@ def test_default_configuration(monkeypatch):
 
     assert settings.xml_path is None
     assert settings.xml_url is None
+    assert settings.dataset is None
+    assert settings.dashboard_api_url == DEFAULT_DASHBOARD_API_URL
     assert settings.sample == DEFAULT_SAMPLE
     assert settings.data_dir == user_data_path(APP_NAME)
     assert settings.cache_ttl_seconds == 2592000
@@ -41,6 +46,8 @@ def test_configuration_accepts_all_overrides(monkeypatch, tmp_path):
     data_dir = tmp_path / "data"
     monkeypatch.setenv("MCP_IATI_XML_PATH", str(xml_path))
     monkeypatch.setenv("MCP_IATI_XML_URL", "https://example.org/brasil.xml")
+    monkeypatch.setenv("MCP_IATI_DATASET", " caf-actfile-46008-2603 ")
+    monkeypatch.setenv("MCP_IATI_DASHBOARD_API_URL", "https://dashboard.example.org/api/")
     monkeypatch.setenv("MCP_IATI_SAMPLE", "iadb-Argentina.xml")
     monkeypatch.setenv("MCP_IATI_DATA_DIR", str(data_dir))
     monkeypatch.setenv("MCP_IATI_CACHE_TTL_SECONDS", "3600")
@@ -49,9 +56,25 @@ def test_configuration_accepts_all_overrides(monkeypatch, tmp_path):
 
     assert settings.xml_path == xml_path
     assert settings.xml_url == "https://example.org/brasil.xml"
+    assert settings.dataset == "caf-actfile-46008-2603"
+    assert settings.dashboard_api_url == "https://dashboard.example.org/api"
     assert settings.sample == "iadb-Argentina.xml"
     assert settings.data_dir == data_dir
     assert settings.cache_ttl_seconds == 3600
+
+
+@pytest.mark.parametrize("value", ["../etc", "caf/act", "caf act", ".."])
+def test_invalid_dataset_name_is_rejected(monkeypatch, value):
+    monkeypatch.setenv("MCP_IATI_DATASET", value)
+
+    with pytest.raises(ValueError, match="MCP_IATI_DATASET"):
+        get_settings()
+
+
+def test_blank_dataset_means_unset(monkeypatch):
+    monkeypatch.setenv("MCP_IATI_DATASET", "   ")
+
+    assert get_settings().dataset is None
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "seven-days"])

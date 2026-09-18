@@ -39,8 +39,13 @@ def _register_iati_tools(mcp):  # noqa: C901
     (https://webimages.iadb.org/iati/iadb-Brazil.xml), but the tools only use
     generic IATI standard fields (identifier, status, transaction type) so
     they work just as well with any other IATI XML (configurable via
-    MCP_IATI_XML_PATH).
+    MCP_IATI_XML_PATH, MCP_IATI_XML_URL or MCP_IATI_DATASET; the CAF
+    deployment uses the latter).
     """
+    # The sample questions quote a country, a sector and an activity that
+    # exist in the loaded file, so the same plugin reads naturally whether
+    # it serves the IADB Brazil sample or CAF's file.
+    example = activities.example_values()
     mcp.set_plugin_info(
         display_name="Explore IATI Data",
         description=(
@@ -76,11 +81,12 @@ def _register_iati_tools(mcp):  # noqa: C901
             "What activity statuses are present in this IATI file?",
             "Which recipient countries are present in this IATI file?",
             "Which sectors are present in this IATI file?",
-            "Which health activities in Brazil are still in implementation?",
+            f"Which activities in {example['country']} in the sector "
+            f"\"{example['sector']}\" are still in implementation?",
             "Which organisations participate most often in this IATI file?",
-            "Give me a summary of activity XI-IATI-IADB-BR-L1231",
-            "Which organisations participate in activity XI-IATI-IADB-BR-L1231?",
-            "Show the transactions for activity XI-IATI-IADB-BR-L1231",
+            f"Give me a summary of activity {example['activity']}",
+            f"Which organisations participate in activity {example['activity']}?",
+            f"Show the transactions for activity {example['activity']}",
             "How much was committed and disbursed each year?",
             "How much was committed and disbursed by each reporting organisation?",
             "How much was committed by sector?",

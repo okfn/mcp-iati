@@ -13,7 +13,7 @@ import unicodedata
 import pandas as pd
 
 from mcp_iati import helpers as h
-from mcp_iati.activities.country_aliases import country_code_for_name
+from mcp_iati.activities.country_aliases import COUNTRY_ALIASES, country_code_for_name
 from mcp_iati.activities.data import (
     activities_df,
     activity_dates_df,
@@ -3403,3 +3403,69 @@ def activity_transactions(
         limit=limit,
         charts=_activity_transaction_charts(shown, iati_identifier),
     )
+
+
+# Fallbacks for the sample questions when the loaded data cannot supply
+# examples (empty tables, missing columns): they match the default IADB
+# Brazil sample.
+DEFAULT_EXAMPLES = {
+    "country": "Brazil",
+    "sector": "health",
+    "activity": "XI-IATI-IADB-BR-L1231",
+}
+
+
+def _example_country_name(code: str, published_name: str) -> str:
+    """Prefer the published country name, then the alias table, then the code."""
+    if published_name:
+        return published_name
+    names = COUNTRY_ALIASES.get(code.upper())
+    return names[0] if names else code
+
+
+def example_values() -> dict[str, str]:
+    """Pick real values from the loaded data for the plugin's sample questions.
+
+    Returns the recipient country and sector with the most activities in
+    implementation (so the combined sample question has results) and the
+    activity with the most transactions. Every failure falls back to
+    DEFAULT_EXAMPLES: sample questions are cosmetic and must never stop
+    the plugin from registering.
+    """
+    examples = dict(DEFAULT_EXAMPLES)
+    try:
+        activities = activities_df()
+        ids = _stripped(activities["activity_identifier"])
+        located = pd.DataFrame({
+            "activity_identifier": ids,
+            "code": _stripped(activities["recipient_country_code"]).str.upper(),
+            "name": _stripped(activities["recipient_country_name"]),
+            "status": _stripped(activities["activity_status"]),
+        })
+        located = located[located["code"] != ""]
+        implementing = located[located["status"] == "2"]
+        if implementing.empty:
+            implementing = located
+        if not implementing.empty:
+            top_code = implementing["code"].value_counts().idxmax()
+            in_country = implementing[implementing["code"] == top_code]
+            examples["country"] = _example_country_name(
+                top_code,
+                in_country["name"].iloc[0],
+            )
+            sectors = _named_sectors(sectors_df())
+            sectors = sectors[
+                sectors["activity_identifier"].isin(in_country["activity_identifier"])
+                & (sectors["sector_name"] != "")
+            ]
+            if not sectors.empty:
+                examples["sector"] = sectors["sector_name"].value_counts().idxmax()
+
+        transactions = transactions_df()
+        counts = _stripped(transactions["activity_identifier"]).value_counts()
+        counts = counts[counts.index.isin(ids)]
+        if not counts.empty:
+            examples["activity"] = counts.idxmax()
+    except Exception:  # noqa: BLE001 - cosmetic, see docstring
+        return dict(DEFAULT_EXAMPLES)
+    return examples

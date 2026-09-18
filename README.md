@@ -81,15 +81,44 @@ variables below).
 
 ## Where the data comes from
 
-The XML files are official IATI publications of the Inter-American
-Development Bank, **not versioned in this repo**: they are downloaded on
-demand from the bank's own hosting at
+The XML files are official IATI publications, **not versioned in this
+repo**. By default they are the Inter-American Development Bank's, downloaded
+on demand from the bank's own hosting at
 [webimages.iadb.org/iati](https://webimages.iadb.org/iati/iadb-Brazil.xml)
-(the same URLs the [IATI registry](https://dashboard.iatistandard.org/publishers/iadb/)
+(the same URLs the [IATI Dashboard](https://dashboard.iatistandard.org/publishers/iadb/)
 indexes; the IADB refreshes them monthly) into the user data directory
 (`~/.local/share/mcp-iati/xml/` on Linux, via `platformdirs`) and refreshed
 when the configured TTL expires. The `.gitignore` excludes any `*.xml` just
 in case.
+
+Any other publisher works the same way. The public
+[mcp.okfn.org/iati-caf/](https://mcp.okfn.org/iati-caf/) instance serves the
+activity file of [CAF, Development Bank of Latin America and the
+Caribbean](https://dashboard.iatistandard.org/publishers/caf/) through
+`MCP_IATI_DATASET=caf-actfile-46008-2603` (see below).
+
+### Finding a publisher's XML: the IATI Dashboard
+
+The CKAN-based IATI Registry (`iatiregistry.org`) was replaced in December
+2025 by [IATI Account](https://account.iatistandard.org/) (publishers manage
+their files there) and the [IATI Dashboard](https://dashboard.iatistandard.org/)
+(public, read-only metadata about every reporting organisation and dataset).
+The Dashboard exposes a JSON API without authentication:
+
+```bash
+# one publisher and its dataset count
+curl https://dashboard.iatistandard.org/api/reporting-orgs/caf/
+# its datasets, each with the XML URL currently published (`source_url`)
+curl "https://dashboard.iatistandard.org/api/datasets/?reporting_org__short_name=caf"
+# one dataset
+curl https://dashboard.iatistandard.org/api/datasets/caf-actfile-46008-2603/
+```
+
+Some publishers (CAF among them) put the release date in the XML filename,
+so the URL changes with every update. `MCP_IATI_DATASET` takes the dataset
+short name instead and resolves the current `source_url` through that API
+on first use and whenever the cache TTL expires; the last resolved URL is
+kept on disk so a Dashboard outage never stops a running server.
 
 ## How the XML is processed
 
@@ -102,11 +131,15 @@ in case.
    `pandas`, not the XML - this avoids reparsing a multi-MB file on every
    call.
 3. It uses `iadb-Brazil.xml` by default. To use another official IADB
-   country file, a remote URL or a local file, without touching code:
+   country file, a dataset from the IATI Dashboard, a remote URL or a local
+   file, without touching code:
 
    ```bash
    # another IADB country file from https://webimages.iadb.org/iati/
    export MCP_IATI_SAMPLE=iadb-Argentina.xml
+
+   # or a dataset registered in the IATI Dashboard (CAF's activity file)
+   export MCP_IATI_DATASET=caf-actfile-46008-2603
 
    # or any remote IATI XML
    export MCP_IATI_XML_URL=https://example.org/activities.xml
@@ -114,6 +147,9 @@ in case.
    # or any local file (downloads nothing)
    export MCP_IATI_XML_PATH=/path/to/another-iati-file.xml
    ```
+
+   The plugin's sample questions quote a country, a sector and an activity
+   taken from the loaded file, so they stay meaningful for any publisher.
 
 ## Configuration
 
@@ -124,7 +160,9 @@ changing the source, data directory or cache duration.
 | --- | --- | --- |
 | `MCP_IATI_XML_PATH` | Path to a local XML. It has priority and performs no download. | Not set. |
 | `MCP_IATI_XML_URL` | HTTP(S) URL of a remote XML, used when no local path is configured. | Not set. |
-| `MCP_IATI_SAMPLE` | Name of an official IADB country file (from https://webimages.iadb.org/iati/), used when neither a path nor URL is configured. | `iadb-Brazil.xml`. |
+| `MCP_IATI_DATASET` | Short name of a dataset in the IATI Dashboard (e.g. `caf-actfile-46008-2603`); its current XML URL is resolved through the Dashboard API. Used when neither a path nor a URL is configured. | Not set. |
+| `MCP_IATI_DASHBOARD_API_URL` | Base URL of the IATI Dashboard API used to resolve `MCP_IATI_DATASET`. | `https://dashboard.iatistandard.org/api`. |
+| `MCP_IATI_SAMPLE` | Name of an official IADB country file (from https://webimages.iadb.org/iati/), used when no path, URL or dataset is configured. | `iadb-Brazil.xml`. |
 | `MCP_IATI_DATA_DIR` | Directory for downloaded XML files and generated CSV files. | User data directory provided by `platformdirs`. |
 | `MCP_IATI_CACHE_TTL_SECONDS` | Configurable cache duration in seconds; must be greater than zero. | `2592000` (30 days; IATI files are typically updated yearly). |
 | `MCP_IATI_STALE_RETRY_SECONDS` | How long to keep serving a stale CSV cache after a failed refresh before retrying the conversion; must be greater than zero. | `3600` (1 hour). |
@@ -140,8 +178,9 @@ The source precedence is:
 
 1. `MCP_IATI_XML_PATH`.
 2. `MCP_IATI_XML_URL`.
-3. `MCP_IATI_SAMPLE`.
-4. The default `iadb-Brazil.xml` sample.
+3. `MCP_IATI_DATASET`.
+4. `MCP_IATI_SAMPLE`.
+5. The default `iadb-Brazil.xml` sample.
 
 Example:
 

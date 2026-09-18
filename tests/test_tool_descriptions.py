@@ -6,6 +6,7 @@ Plugin registration: expected tools, glossary in the instructions and the
 import pytest
 
 from mcp_iati import register_tools
+from mcp_iati.activities import queries
 from mcp_iati.glossary import (
     TOOL_GLOSSARY_TERMS,
     tool_glossary_text,
@@ -63,6 +64,35 @@ def test_plugin_sample_questions_cover_main_use_cases(fake_mcp):
 
     questions = fake_mcp.plugin_info["sample_questions"]
     assert "What does this IATI file contain?" in questions
+
+
+def test_plugin_sample_questions_quote_values_from_the_loaded_data(fake_mcp, seed_cache):
+    register_tools(fake_mcp)
+
+    questions = fake_mcp.plugin_info["sample_questions"]
+    # IATI-001 is the only activity in implementation (Argentina, Transport)
+    # and the one with the most transactions.
+    assert (
+        'Which activities in Argentina in the sector "Transport" are still in implementation?'
+        in questions
+    )
+    assert "Give me a summary of activity IATI-001" in questions
+    assert not any("XI-IATI-IADB-BR-L1231" in question for question in questions)
+
+
+def test_plugin_sample_questions_fall_back_when_no_data_is_loaded(fake_mcp, monkeypatch):
+    # When the data cannot be read the defaults keep the plugin registering
+    # normally (sample questions are cosmetic).
+    def unavailable():
+        raise FileNotFoundError("no IATI data")
+
+    monkeypatch.setattr(queries, "activities_df", unavailable)
+
+    register_tools(fake_mcp)
+
+    questions = fake_mcp.plugin_info["sample_questions"]
+    assert "Give me a summary of activity XI-IATI-IADB-BR-L1231" in questions
+    assert 'Which activities in Brazil in the sector "health" are still in implementation?' in questions
 
 
 def test_no_tool_disponible_returns_clear_fallback_message(fake_mcp):

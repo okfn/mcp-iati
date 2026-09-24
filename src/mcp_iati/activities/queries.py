@@ -13,7 +13,7 @@ import unicodedata
 import pandas as pd
 
 from mcp_iati import helpers as h
-from mcp_iati.activities.country_aliases import country_code_for_name
+from mcp_iati.activities.country_aliases import COUNTRY_ALIASES, country_code_for_name
 from mcp_iati.activities.data import (
     activities_df,
     activity_dates_df,
@@ -1960,6 +1960,79 @@ def _filter_notes(criteria: list[_Criterion]) -> list[str]:
     return notes
 
 
+class _Scope:
+    """Optional activity-level filters shared by the aggregation tools.
+
+    `ids` is None when no filter was given (nothing to apply), otherwise
+    the identifiers of the activities matching every criterion. `error`
+    carries the first unresolved criterion, worded like filter_activities
+    (it lists the available values so the caller can retry).
+    """
+
+    def __init__(self, criteria: list[_Criterion]):
+        self.criteria = criteria
+        self.error = next((c.error for c in criteria if c.error), None)
+        self.ids: set[str] | None = (
+            set.intersection(*(c.ids for c in criteria))
+            if criteria and not self.error
+            else None
+        )
+
+    def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Keep the rows of `frame` whose activity is inside the scope."""
+        if self.ids is None:
+            return frame
+        return frame[_stripped(frame["activity_identifier"]).isin(self.ids)]
+
+    @property
+    def description(self) -> str:
+        """Suffix for summaries, e.g. " for recipient country 'AR'"."""
+        if not self.criteria:
+            return ""
+        return " " + " and ".join(
+            f"for {c.label} '{c.value}'" for c in self.criteria
+        )
+
+    @property
+    def notes(self) -> str:
+        """How each filter value was matched, for the summary."""
+        return " ".join(_filter_notes(self.criteria))
+
+    @property
+    def filters(self) -> dict[str, str]:
+        return {c.key: c.value for c in self.criteria}
+
+
+def _resolve_scope(
+    country=None,
+    sector=None,
+    organisation=None,
+    status=None,
+) -> _Scope:
+    """Resolve the optional scope filters of an aggregation tool.
+
+    The same resolvers as filter_activities (ISO code or name for the
+    country, code or name for the sector, reference or name for the
+    participating organisation, code or label for the status), so
+    "commitments by year in Argentina" and "activities in Argentina"
+    resolve identically.
+    """
+    values = {
+        key: "" if value is None else str(value).strip()
+        for key, value in (
+            ("country", country),
+            ("sector", sector),
+            ("organisation", organisation),
+            ("status", status),
+        )
+    }
+    if not any(values.values()):
+        return _Scope([])
+    activities = activities_df().drop_duplicates(subset=["activity_identifier"]).copy()
+    activities["activity_identifier"] = _stripped(activities["activity_identifier"])
+    return _Scope(_resolve_criteria(activities, **values))
+
+
 def filter_activities(
     country: str | None = None,
     sector: str | None = None,
@@ -2124,8 +2197,17 @@ def filter_activities_by_participating_org(
     )
 
 
-def list_sectors(limit: int = 100):
-    """List sectors present in the configured IATI data."""
+def list_sectors(
+    limit: int = 100,
+    country: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
+):
+    """List sectors present in the configured IATI data.
+
+    The optional country, organisation and status filters restrict the
+    count to the matching activities ("which sectors does Argentina have").
+    """
     tool_name = "list_sectors"
     if limit < 1:
         return h.empty_result(
@@ -2133,7 +2215,11 @@ def list_sectors(limit: int = 100):
             source_url=xml_source(),
         )
 
-    sectors = _named_sectors(sectors_df())
+    scope = _resolve_scope(country=country, organisation=organisation, status=status)
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    sectors = scope.apply(_named_sectors(sectors_df()))
 
     sectors["display_name"] = sectors["sector_name"].where(
         sectors["sector_name"] != "",
@@ -2147,7 +2233,7 @@ def list_sectors(limit: int = 100):
 
     if sectors.empty:
         return h.empty_result(
-            "No sectors were found in the loaded IATI data.",
+            f"No sectors were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2181,7 +2267,7 @@ def list_sectors(limit: int = 100):
         ],
     )
 
-    summary = f"Found {total} sector value(s)."
+    summary = f"Found {total} sector value(s){scope.description}. {scope.notes}".strip()
 
     return h.text_result(
         summary,
@@ -2190,6 +2276,7 @@ def list_sectors(limit: int = 100):
         tool_name=tool_name,
         total=total,
         shown=len(shown),
+        filters=scope.filters or None,
         limit=limit,
         charts=_sector_count_charts(shown),
     )
@@ -2198,11 +2285,17 @@ def list_sectors(limit: int = 100):
 def transaction_totals_by_year(
     year_from: int | None = None,
     year_to: int | None = None,
+    country: str | None = None,
+    sector: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
 ):
     """Group commitments and disbursements by year and currency.
 
     Only commitment and disbursement transactions are included. Amounts with
-    different currencies are always reported separately.
+    different currencies are always reported separately. The optional
+    country, sector, organisation and status filters restrict the totals to
+    the matching activities.
 
     Args:
         year_from: Optional first year to include.
@@ -2219,11 +2312,17 @@ def transaction_totals_by_year(
             source_url=xml_source(),
         )
 
-    transactions = transactions_df().copy()
+    scope = _resolve_scope(
+        country=country, sector=sector, organisation=organisation, status=status
+    )
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    transactions = scope.apply(transactions_df()).copy()
 
     if transactions.empty:
         return h.empty_result(
-            "No transactions were found in the loaded IATI data.",
+            f"No transactions were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2259,7 +2358,8 @@ def transaction_totals_by_year(
 
     if transactions.empty:
         return h.empty_result(
-            "No transaction totals were found for the requested year range.",
+            "No transaction totals were found for the requested year range"
+            f"{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2321,7 +2421,10 @@ def transaction_totals_by_year(
         },
     )
 
-    summary = f"Found {len(rows)} annual transaction total(s)."
+    summary = (
+        f"Found {len(rows)} annual transaction total(s){scope.description}. "
+        f"{scope.notes}"
+    ).strip()
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -2332,6 +2435,7 @@ def transaction_totals_by_year(
         filters={
             "year_from": year_from,
             "year_to": year_to,
+            **scope.filters,
         },
         charts=_year_totals_charts(grouped),
     )
@@ -2605,12 +2709,17 @@ def transaction_totals_by_country(
     transaction_type: str = "2",
     currency: str | None = None,
     limit: int = 50,
+    sector: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
 ):
     """Group commitments and disbursements by recipient country.
 
     Amounts with different currencies and transaction types are reported
     separately. Missing country names fall back to the country code, and
-    missing country data falls back to "Unknown recipient country".
+    missing country data falls back to "Unknown recipient country". The
+    optional sector, organisation and status filters restrict the totals
+    to the matching activities.
     """
     tool_name = "transaction_totals_by_country"
     if limit < 1:
@@ -2657,10 +2766,14 @@ def transaction_totals_by_country(
             .str.strip()
         )
 
-    transactions = transactions_df().copy()
+    scope = _resolve_scope(sector=sector, organisation=organisation, status=status)
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    transactions = scope.apply(transactions_df()).copy()
     if transactions.empty:
         return h.empty_result(
-            "No transactions were found in the loaded IATI data.",
+            f"No transactions were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2678,7 +2791,8 @@ def transaction_totals_by_country(
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data.",
+            "No matching transactions were found in the loaded IATI data"
+            f"{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2799,7 +2913,10 @@ def transaction_totals_by_country(
         },
     )
 
-    summary = f"Found {total} country transaction total(s)."
+    summary = (
+        f"Found {total} country transaction total(s){scope.description}. "
+        f"{scope.notes}"
+    ).strip()
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -2810,6 +2927,7 @@ def transaction_totals_by_country(
         filters={
             "transaction_type": transaction_type_code,
             "currency": selected_currency or None,
+            **scope.filters,
         },
         limit=limit,
     )
@@ -2820,11 +2938,16 @@ def transaction_totals_by_sector(
     currency: str | None = None,
     vocabulary: str | None = None,
     limit: int = 50,
+    country: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
 ):
     """Allocate commitments and disbursements across sectors.
 
     Amounts are distributed using the published sector percentages. Different
-    vocabularies and currencies are reported separately.
+    vocabularies and currencies are reported separately. The optional
+    country, organisation and status filters restrict the totals to the
+    matching activities ("commitments by sector in Argentina").
     """
     tool_name = "transaction_totals_by_sector"
     if limit < 1:
@@ -2850,7 +2973,11 @@ def transaction_totals_by_sector(
                 source_url=xml_source(),
             )
 
-    transactions = transactions_df().copy()
+    scope = _resolve_scope(country=country, organisation=organisation, status=status)
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    transactions = scope.apply(transactions_df()).copy()
     transactions["transaction_type"] = (
         transactions["transaction_type"]
         .fillna("")
@@ -2865,7 +2992,8 @@ def transaction_totals_by_sector(
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data.",
+            "No matching transactions were found in the loaded IATI data"
+            f"{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -3034,10 +3162,11 @@ def transaction_totals_by_sector(
     )
 
     summary = (
+        f"Found {total} sector total(s){scope.description}. {scope.notes} "
         "Transaction amounts are allocated using the published sector "
         "percentages. Currencies and sector vocabularies are reported "
         "separately."
-    )
+    ).replace("  ", " ")
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -3049,6 +3178,7 @@ def transaction_totals_by_sector(
             "transaction_type": transaction_type_code,
             "currency": selected_currency or None,
             "vocabulary": vocabulary,
+            **scope.filters,
         },
         limit=limit,
         charts=_sector_totals_charts(grouped, transaction_type_code),
@@ -3059,11 +3189,17 @@ def top_activities_by_amount(
     transaction_type: str = "2",
     currency: str | None = None,
     limit: int = 10,
+    country: str | None = None,
+    sector: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
 ):
     """Return activities with the highest transaction totals.
 
     Rankings are calculated independently for each currency. Only commitments
-    and disbursements are supported.
+    and disbursements are supported. The optional country, sector,
+    organisation and status filters restrict the ranking to the matching
+    activities ("top 5 activities by commitment in Argentina").
     """
     tool_name = "top_activities_by_amount"
     if limit < 1:
@@ -3089,7 +3225,13 @@ def top_activities_by_amount(
                 source_url=xml_source(),
             )
 
-    transactions = transactions_df().copy()
+    scope = _resolve_scope(
+        country=country, sector=sector, organisation=organisation, status=status
+    )
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    transactions = scope.apply(transactions_df()).copy()
     transactions["transaction_type"] = (
         transactions["transaction_type"]
         .fillna("")
@@ -3104,7 +3246,8 @@ def top_activities_by_amount(
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data.",
+            "No matching transactions were found in the loaded IATI data"
+            f"{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -3271,8 +3414,12 @@ def top_activities_by_amount(
     }
     if selected_currency:
         filters["currency"] = selected_currency
+    filters.update(scope.filters)
 
-    summary = f"Found {total_results} top activity amount(s)."
+    summary = (
+        f"Found {total_results} top activity amount(s){scope.description}. "
+        f"{scope.notes}"
+    ).strip()
     if transaction_type_code == "2":
         interpretation = (
             "Commitments do not necessarily represent payments made."
@@ -3403,3 +3550,238 @@ def activity_transactions(
         limit=limit,
         charts=_activity_transaction_charts(shown, iati_identifier),
     )
+
+
+# Dimensions accepted by count_activities_by: how each activity is labelled
+# for grouping. Sector and organisation are one-to-many (an activity can
+# have several), so counts are distinct activities per value and the rows
+# add up to more than the number of activities.
+GROUP_BY_DIMENSIONS = ("country", "sector", "organisation", "status")
+
+
+def _grouping_rows(group_by: str, activities: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Return (rows with one line per activity and group value, key columns)."""
+    ids = _stripped(activities["activity_identifier"])
+    if group_by == "country":
+        codes = _stripped(activities["recipient_country_code"]).str.upper()
+        names = _stripped(activities["recipient_country_name"])
+        rows = pd.DataFrame({
+            "activity_identifier": ids,
+            "country_code": codes.where(codes != "", "Unknown"),
+            "recipient_country": [
+                _example_country_name(code, name) if code else "Unknown recipient country"
+                for code, name in zip(codes, names)
+            ],
+        })
+        return rows, ["country_code", "recipient_country"]
+    if group_by == "status":
+        codes = _stripped(activities["activity_status"])
+        rows = pd.DataFrame({
+            "activity_identifier": ids,
+            "status_code": codes.where(codes != "", "Unknown"),
+            "activity_status": codes.map(h.activity_status_label),
+        })
+        return rows, ["status_code", "activity_status"]
+    if group_by == "sector":
+        sectors = _named_sectors(sectors_df())
+        sectors = sectors[sectors["activity_identifier"].isin(set(ids))].copy()
+        sectors["display_name"] = sectors["sector_name"].where(
+            sectors["sector_name"] != "", sectors["sector_code"]
+        )
+        sectors = sectors[sectors["display_name"] != ""]
+        return sectors, ["vocabulary", "sector_code", "display_name"]
+    orgs = participating_orgs_df().copy()
+    for column in ("activity_identifier", "org_ref", "org_name"):
+        orgs[column] = _stripped(orgs[column])
+    orgs = orgs[orgs["activity_identifier"].isin(set(ids))]
+    orgs = orgs[(orgs["org_ref"] != "") | (orgs["org_name"] != "")].copy()
+    orgs["display_name"] = orgs["org_name"].where(orgs["org_name"] != "", orgs["org_ref"])
+    return orgs, ["org_ref", "display_name"]
+
+
+_GROUP_BY_COLUMNS = {
+    "country": [("country_code", "Country code"), ("recipient_country", "Recipient country")],
+    "status": [("status_code", "Status code"), ("activity_status", "Activity status")],
+    "sector": [("vocabulary", "Vocabulary"), ("sector_code", "Sector code"), ("display_name", "Sector")],
+    "organisation": [("org_ref", "Organisation reference"), ("display_name", "Participating organisation")],
+}
+
+
+def _group_count_charts(group_by: str, shown: pd.DataFrame, scope: _Scope) -> list[dict]:
+    """Bar chart of the top group values (sectors: one per vocabulary)."""
+    if group_by == "sector":
+        return _sector_count_charts(shown)
+    if group_by == "organisation":
+        return _participating_org_charts(shown)
+    label_column = _GROUP_BY_COLUMNS[group_by][-1][0]
+    top = shown.head(CHART_TOP_N)
+    if len(top) < 2:
+        return []
+    return [h.charts.bar_chart(
+        f"Activities by {group_by}{scope.description} (top {len(top)})",
+        [h.charts.short_label(name) for name in top[label_column]],
+        [("Activities", top["activities"].tolist())],
+    )]
+
+
+def count_activities_by(
+    group_by: str,
+    country: str | None = None,
+    sector: str | None = None,
+    organisation: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+):
+    """Count activities per value of one dimension, inside optional filters.
+
+    The generic "group by" of the plugin: "sectors per country" is
+    count_activities_by("sector", country="AR"), "countries of an
+    organisation" is count_activities_by("country", organisation=...).
+    Filters use the same resolvers as filter_activities.
+    """
+    tool_name = "count_activities_by"
+    dimension = _fold_text(group_by).rstrip("s")
+    aliases = {
+        "countr": "country",
+        "countrie": "country",
+        "recipient countr": "country",
+        "recipient countrie": "country",
+        "org": "organisation",
+        "organization": "organisation",
+        "participating organisation": "organisation",
+        "participating organization": "organisation",
+        "statu": "status",
+        "activity statu": "status",
+    }
+    dimension = aliases.get(dimension, dimension)
+    if dimension not in GROUP_BY_DIMENSIONS:
+        return h.empty_result(
+            f"Unsupported group_by '{group_by}'. Use one of: "
+            + ", ".join(GROUP_BY_DIMENSIONS) + ".",
+            source_url=xml_source(),
+        )
+    if limit < 1:
+        return h.empty_result(
+            "The result limit must be greater than zero.",
+            source_url=xml_source(),
+        )
+
+    scope = _resolve_scope(
+        country=country, sector=sector, organisation=organisation, status=status
+    )
+    if scope.error:
+        return h.empty_result(scope.error, source_url=xml_source())
+
+    activities = activities_df().drop_duplicates(subset=["activity_identifier"]).copy()
+    activities = scope.apply(activities)
+    if activities.empty:
+        return h.empty_result(
+            f"No IATI activities were found{scope.description}.",
+            source_url=xml_source(),
+        )
+
+    rows, keys = _grouping_rows(dimension, activities)
+    if rows.empty:
+        return h.empty_result(
+            f"The activities{scope.description} declare no {dimension} to group by.",
+            source_url=xml_source(),
+        )
+    counts = (
+        rows.groupby(keys, dropna=False)["activity_identifier"]
+        .nunique()
+        .reset_index(name="activities")
+        .sort_values(["activities", keys[-1]], ascending=[False, True], kind="mergesort")
+    )
+    total = len(counts)
+    shown = counts.head(limit)
+
+    table = h.build_table(
+        shown.to_dict("records"),
+        _GROUP_BY_COLUMNS[dimension] + [("activities", "Activities")],
+    )
+    summary = (
+        f"Counted {len(activities)} IATI activity(ies){scope.description} "
+        f"across {total} {dimension} value(s). {scope.notes}"
+    ).strip()
+    if dimension in ("sector", "organisation"):
+        summary += (
+            f" An activity can have several {dimension}s, so the counts can "
+            "add up to more than the number of activities."
+        )
+    return h.text_result(
+        summary,
+        source_url=xml_source(),
+        table=table,
+        tool_name=tool_name,
+        total=total,
+        shown=len(shown),
+        filters={"group_by": dimension, **scope.filters},
+        limit=limit,
+        charts=_group_count_charts(dimension, shown, scope),
+    )
+
+
+# Fallbacks for the sample questions when the loaded data cannot supply
+# examples (empty tables, missing columns): they match the default IADB
+# Brazil sample.
+DEFAULT_EXAMPLES = {
+    "country": "Brazil",
+    "sector": "health",
+    "activity": "XI-IATI-IADB-BR-L1231",
+}
+
+
+def _example_country_name(code: str, published_name: str) -> str:
+    """Prefer the published country name, then the alias table, then the code."""
+    if published_name:
+        return published_name
+    names = COUNTRY_ALIASES.get(code.upper())
+    return names[0] if names else code
+
+
+def example_values() -> dict[str, str]:
+    """Pick real values from the loaded data for the plugin's sample questions.
+
+    Returns the recipient country and sector with the most activities in
+    implementation (so the combined sample question has results) and the
+    activity with the most transactions. Every failure falls back to
+    DEFAULT_EXAMPLES: sample questions are cosmetic and must never stop
+    the plugin from registering.
+    """
+    examples = dict(DEFAULT_EXAMPLES)
+    try:
+        activities = activities_df()
+        ids = _stripped(activities["activity_identifier"])
+        located = pd.DataFrame({
+            "activity_identifier": ids,
+            "code": _stripped(activities["recipient_country_code"]).str.upper(),
+            "name": _stripped(activities["recipient_country_name"]),
+            "status": _stripped(activities["activity_status"]),
+        })
+        located = located[located["code"] != ""]
+        implementing = located[located["status"] == "2"]
+        if implementing.empty:
+            implementing = located
+        if not implementing.empty:
+            top_code = implementing["code"].value_counts().idxmax()
+            in_country = implementing[implementing["code"] == top_code]
+            examples["country"] = _example_country_name(
+                top_code,
+                in_country["name"].iloc[0],
+            )
+            sectors = _named_sectors(sectors_df())
+            sectors = sectors[
+                sectors["activity_identifier"].isin(in_country["activity_identifier"])
+                & (sectors["sector_name"] != "")
+            ]
+            if not sectors.empty:
+                examples["sector"] = sectors["sector_name"].value_counts().idxmax()
+
+        transactions = transactions_df()
+        counts = _stripped(transactions["activity_identifier"]).value_counts()
+        counts = counts[counts.index.isin(ids)]
+        if not counts.empty:
+            examples["activity"] = counts.idxmax()
+    except Exception:  # noqa: BLE001 - cosmetic, see docstring
+        return dict(DEFAULT_EXAMPLES)
+    return examples

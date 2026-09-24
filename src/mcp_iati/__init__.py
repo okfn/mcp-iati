@@ -39,8 +39,13 @@ def _register_iati_tools(mcp):  # noqa: C901
     (https://webimages.iadb.org/iati/iadb-Brazil.xml), but the tools only use
     generic IATI standard fields (identifier, status, transaction type) so
     they work just as well with any other IATI XML (configurable via
-    MCP_IATI_XML_PATH).
+    MCP_IATI_XML_PATH, MCP_IATI_XML_URL or MCP_IATI_DATASET; the CAF
+    deployment uses the latter).
     """
+    # The sample questions quote a country, a sector and an activity that
+    # exist in the loaded file, so the same plugin reads naturally whether
+    # it serves the IADB Brazil sample or CAF's file.
+    example = activities.example_values()
     mcp.set_plugin_info(
         display_name="Explore IATI Data",
         description=(
@@ -64,7 +69,14 @@ def _register_iati_tools(mcp):  # noqa: C901
             "organisation and status) call filter_activities with all of "
             "them; pass ISO country codes such as BR when you know them, and "
             "when a tool reports that a value did not match, retry with one "
-            "of the exact values it lists."
+            "of the exact values it lists. The ranking and totals tools "
+            "(top_activities_by_amount, transaction_totals_by_year, "
+            "transaction_totals_by_sector, transaction_totals_by_country, "
+            "list_sectors) accept the same country, sector, organisation and "
+            "status filters, so 'top activities in Argentina' is one call "
+            "with country=AR. For a breakdown of one dimension inside "
+            "another (sectors per country, countries of an organisation, "
+            "statuses in a sector) call count_activities_by."
         ),
         sample_questions=[
             "What does this IATI file contain?",
@@ -76,7 +88,8 @@ def _register_iati_tools(mcp):  # noqa: C901
             "What activity statuses are present in this IATI file?",
             "Which recipient countries are present in this IATI file?",
             "Which sectors are present in this IATI file?",
-            "Which health activities in Brazil are still in implementation?",
+            f"Which activities in {example['country']} in the sector "
+            f"\"{example['sector']}\" are still in implementation?",
             "Which organisations participate most often in this IATI file?",
             "Give me a summary of activity 'Improve Road Access to Small Municipalities' (ID: XI-IATI-IADB-BR-L1231)",
             "Which organisations participate in activity 'Improve Road Access to Small Municipalities' (ID: XI-IATI-IADB-BR-L1231)?",
@@ -90,6 +103,8 @@ def _register_iati_tools(mcp):  # noqa: C901
             "How is committed funding distributed across sectors?",
             "What share of activities are still in implementation?",
             "Which sectors have the most activities?",
+            f"Which sectors do the activities in {example['country']} cover?",
+            f"What are the top 5 activities by commitment in {example['country']}?",
             "Which organisations, apart from the publisher, participate in the most activities?",
         ],
     )
@@ -419,17 +434,36 @@ def _register_iati_tools(mcp):  # noqa: C901
     mcp.tool()(filter_activities_by_country)
 
 
-    def list_sectors(limit: int = 100) -> DataToolOutput:
-        return activities.list_sectors(limit=limit)
+    def list_sectors(
+        limit: int = 100,
+        country: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
+    ) -> DataToolOutput:
+        return activities.list_sectors(
+            limit=limit,
+            country=country,
+            organisation=organisation,
+            status=status,
+        )
 
     list_sectors.__doc__ = (
-        """List the sectors present in the loaded IATI data.
+        """List the sectors present in the loaded IATI data, with the
+            number of activities in each.
 
         Use this tool to discover the available sector codes and
-        vocabularies before performing sector-based analysis.
+        vocabularies before performing sector-based analysis, or with a
+        country / organisation / status filter to answer "which sectors
+        do the activities in Argentina cover?".
 
         Args:
             limit: Maximum number of sector values to return. Default: 100.
+            country: Optional recipient country (ISO code or name) to
+                count only the activities in that country.
+            organisation: Optional participating organisation reference or
+                name to count only its activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to count only those activities.
 
         Returns:
             A table containing vocabulary, sector code, sector name and
@@ -575,21 +609,38 @@ def _register_iati_tools(mcp):  # noqa: C901
     def transaction_totals_by_year(
         year_from: int | None = None,
         year_to: int | None = None,
+        country: str | None = None,
+        sector: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
     ) -> DataToolOutput:
         return activities.transaction_totals_by_year(
             year_from=year_from,
             year_to=year_to,
+            country=country,
+            sector=sector,
+            organisation=organisation,
+            status=status,
         )
 
     transaction_totals_by_year.__doc__ = (
         """Group commitments and disbursements by year and currency.
 
         Only commitment and disbursement transactions are included. Amounts
-        with different currencies are always reported separately.
+        with different currencies are always reported separately. The
+        optional filters restrict the totals to the matching activities
+        ("annual commitments in Argentina").
 
         Args:
             year_from: Optional first year to include.
             year_to: Optional last year to include.
+            country: Optional recipient country (ISO code or name) to
+                restrict the activities considered.
+            sector: Optional sector code or name to restrict the activities.
+            organisation: Optional participating organisation reference or
+                name to restrict the activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to restrict the activities.
 
         Returns:
             A chronological table containing year, transaction type, currency
@@ -632,19 +683,27 @@ def _register_iati_tools(mcp):  # noqa: C901
         currency: str | None = None,
         vocabulary: str | None = None,
         limit: int = 50,
+        country: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
     ) -> DataToolOutput:
         return activities.transaction_totals_by_sector(
             transaction_type=transaction_type,
             currency=currency,
             vocabulary=vocabulary,
             limit=limit,
+            country=country,
+            organisation=organisation,
+            status=status,
         )
 
     transaction_totals_by_sector.__doc__ = (
         """Allocate commitments and disbursements across sectors.
 
         Amounts are distributed using the published sector percentages.
-        Different vocabularies and currencies are reported separately.
+        Different vocabularies and currencies are reported separately. The
+        optional filters restrict the totals to the matching activities
+        ("commitments by sector in Argentina").
 
         Args:
             transaction_type: Commitment or disbursement. Accepts commitment,
@@ -653,6 +712,12 @@ def _register_iati_tools(mcp):  # noqa: C901
             vocabulary: Optional sector vocabulary code, for example 1 or 2.
             limit: Maximum number of grouped rows to return per vocabulary and
                 currency. Default: 50.
+            country: Optional recipient country (ISO code or name) to
+                restrict the activities considered.
+            organisation: Optional participating organisation reference or
+                name to restrict the activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to restrict the activities.
 
         Returns:
             A table containing the vocabulary, sector, transaction type,
@@ -668,11 +733,17 @@ def _register_iati_tools(mcp):  # noqa: C901
         transaction_type: str = "2",
         currency: str | None = None,
         limit: int = 50,
+        sector: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
     ) -> DataToolOutput:
         return activities.transaction_totals_by_country(
             transaction_type=transaction_type,
             currency=currency,
             limit=limit,
+            sector=sector,
+            organisation=organisation,
+            status=status,
         )
 
     transaction_totals_by_country.__doc__ = (
@@ -680,13 +751,20 @@ def _register_iati_tools(mcp):  # noqa: C901
 
         Amounts with different currencies and transaction types are reported
         separately. Missing country names fall back to the country code, and
-        missing country data falls back to "Unknown recipient country".
+        missing country data falls back to "Unknown recipient country". The
+        optional filters restrict the totals to the matching activities
+        ("commitments by country in the transport sector").
 
         Args:
             transaction_type: Commitment or disbursement. Accepts commitment,
                 out commitment, disbursement, 2 or 3.
             currency: Optional currency code, for example USD or EUR.
             limit: Maximum number of grouped rows to return. Default: 50.
+            sector: Optional sector code or name to restrict the activities.
+            organisation: Optional participating organisation reference or
+                name to restrict the activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to restrict the activities.
 
         Returns:
             A table containing the country code and name, transaction type,
@@ -702,24 +780,41 @@ def _register_iati_tools(mcp):  # noqa: C901
         transaction_type: str = "2",
         currency: str | None = None,
         limit: int = 10,
+        country: str | None = None,
+        sector: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
     ) -> DataToolOutput:
         return activities.top_activities_by_amount(
             transaction_type=transaction_type,
             currency=currency,
             limit=limit,
+            country=country,
+            sector=sector,
+            organisation=organisation,
+            status=status,
         )
 
     top_activities_by_amount.__doc__ = (
         """List activities with the highest commitment or disbursement totals.
 
         Rankings are calculated independently for each currency, avoiding
-        comparisons between amounts expressed in different currencies.
+        comparisons between amounts expressed in different currencies. The
+        optional filters restrict the ranking to the matching activities
+        ("top 5 activities by commitment in Argentina").
 
         Args:
             transaction_type: Commitment or disbursement. Accepts commitment,
                 out commitment, disbursement, 2 or 3.
             currency: Optional currency code, for example USD or EUR.
             limit: Maximum results to return per currency. Default: 10.
+            country: Optional recipient country (ISO code or name) to
+                restrict the activities considered.
+            sector: Optional sector code or name to restrict the activities.
+            organisation: Optional participating organisation reference or
+                name to restrict the activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to restrict the activities.
 
         Returns:
             A table containing activity identifiers, titles, reporting
@@ -731,6 +826,57 @@ def _register_iati_tools(mcp):  # noqa: C901
         + tool_glossary_text("top_activities_by_amount")
     )
     mcp.tool()(top_activities_by_amount)
+
+    def count_activities_by(
+        group_by: str,
+        country: str | None = None,
+        sector: str | None = None,
+        organisation: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> DataToolOutput:
+        return activities.count_activities_by(
+            group_by=group_by,
+            country=country,
+            sector=sector,
+            organisation=organisation,
+            status=status,
+            limit=limit,
+        )
+
+    count_activities_by.__doc__ = (
+        """Count activities per value of one dimension, optionally inside
+            filters on the other dimensions (a "group by").
+
+        Use it for breakdowns such as "which sectors do the activities in
+        Argentina cover?" (group_by=sector, country=AR), "in which
+        countries does organisation X participate?" (group_by=country,
+        organisation=X) or "how many transport activities are in each
+        status?" (group_by=status, sector=transport). Counts are distinct
+        activities; an activity with several sectors or organisations is
+        counted once under each.
+
+        Args:
+            group_by: Dimension to count by: country, sector, organisation
+                (participating organisation) or status.
+            country: Optional recipient country (ISO code or name) to
+                restrict the activities considered.
+            sector: Optional sector code or name to restrict the activities.
+            organisation: Optional participating organisation reference or
+                name to restrict the activities.
+            status: Optional activity status code or label (e.g.
+                implementation) to restrict the activities.
+            limit: Maximum number of group values to return. Default: 50.
+
+        Returns:
+            A table with one row per value of the chosen dimension and the
+            number of activities, ordered by that number, plus a bar chart.
+
+        Relevant IATI terms:
+        """
+        + tool_glossary_text("count_activities_by")
+    )
+    mcp.tool()(count_activities_by)
 
     @mcp.tool()
     def define_term(term: str) -> DataToolOutput:

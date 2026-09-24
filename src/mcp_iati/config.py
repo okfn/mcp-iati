@@ -10,6 +10,12 @@ from platformdirs import user_data_path
 
 APP_NAME = "mcp-iati"
 DEFAULT_SAMPLE = "iadb-Brazil.xml"
+# Public API of the IATI Dashboard, which replaced the CKAN-based IATI
+# Registry in December 2025 and is now the source of truth for publishers
+# and their data files (https://dashboard.iatistandard.org/api/). Used to
+# resolve MCP_IATI_DATASET (a dataset short name such as
+# `caf-actfile-46008-2603`) to the XML URL currently published for it.
+DEFAULT_DASHBOARD_API_URL = "https://dashboard.iatistandard.org/api"
 # IATI publications are typically updated yearly (or at most quarterly),
 # so a monthly refresh of the downloaded XML and its derived CSVs is
 # plenty. Override with MCP_IATI_CACHE_TTL_SECONDS for livelier sources.
@@ -23,7 +29,9 @@ class IatiSettings:
 
     xml_path: Path | None
     xml_url: str | None
+    dataset: str | None
     sample: str
+    dashboard_api_url: str
     data_dir: Path
     cache_ttl_seconds: int
     stale_retry_seconds: int
@@ -55,6 +63,21 @@ def _parse_cache_ttl(raw_value: str) -> int:
     return _parse_positive_seconds(raw_value, "MCP_IATI_CACHE_TTL_SECONDS")
 
 
+def _parse_dataset(raw_value: str | None) -> str | None:
+    """Validate a Dashboard dataset short name (it becomes a cache filename)."""
+    if raw_value is None:
+        return None
+    value = raw_value.strip()
+    if not value:
+        return None
+    if not all(char.isalnum() or char in "._-" for char in value) or value in {".", ".."}:
+        raise ValueError(
+            "MCP_IATI_DATASET must be a Dashboard dataset short name "
+            "(letters, digits, '.', '_' or '-'), e.g. caf-actfile-46008-2603."
+        )
+    return value
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> IatiSettings:
     """Read settings once; environment changes apply after a restart."""
@@ -72,7 +95,12 @@ def get_settings() -> IatiSettings:
     return IatiSettings(
         xml_path=Path(raw_xml_path).expanduser() if raw_xml_path else None,
         xml_url=os.environ.get("MCP_IATI_XML_URL"),
+        dataset=_parse_dataset(os.environ.get("MCP_IATI_DATASET")),
         sample=os.environ.get("MCP_IATI_SAMPLE", DEFAULT_SAMPLE),
+        dashboard_api_url=os.environ.get(
+            "MCP_IATI_DASHBOARD_API_URL",
+            DEFAULT_DASHBOARD_API_URL,
+        ).rstrip("/"),
         data_dir=(
             Path(raw_data_dir).expanduser()
             if raw_data_dir

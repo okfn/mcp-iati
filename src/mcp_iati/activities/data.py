@@ -7,13 +7,17 @@ by okfn_iati's `IatiMultiCsvConverter.xml_to_csv_folder()`.
 
 The XML files are NOT stored in this repo: on first use the configured file
 is downloaded from the IADB's official IATI hosting
-(https://webimages.iadb.org/iati/, the same URLs the IATI registry indexes;
+(https://webimages.iadb.org/iati/, the same URLs the IATI Dashboard indexes;
 the bank refreshes them monthly) into a per-user data directory. Pick a
 different country file with MCP_IATI_SAMPLE (e.g. `iadb-Argentina.xml`), set
-MCP_IATI_XML_URL for any other publisher's XML, or set MCP_IATI_XML_PATH to
-use a local file with no download at all.
+MCP_IATI_XML_URL for any other publisher's XML, set MCP_IATI_DATASET to a
+dataset short name from the IATI Dashboard (the XML URL is then resolved
+through its API, so publishers that rename their files on every release keep
+working), or set MCP_IATI_XML_PATH to use a local file with no download at
+all.
 """
 import hashlib
+import json
 import os
 import shutil
 import tempfile
@@ -187,18 +191,87 @@ def _download_configured_url(url: str) -> Path:
     return _download_xml(url, f"{source_hash}-{source_name}")
 
 
+def _dataset_api_url(short_name: str) -> str:
+    """Dashboard API endpoint describing one dataset (its current XML URL)."""
+    return f"{get_settings().dashboard_api_url}/datasets/{short_name}/"
+
+
+def _fetch_dataset_source_url(short_name: str) -> str:
+    """Ask the IATI Dashboard which XML URL a dataset currently points at."""
+    request = urllib.request.Request(
+        _dataset_api_url(short_name),
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "mcp-iati (+https://github.com/okfn/mcp-iati)",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=60) as resp:
+        payload = json.load(resp)
+    source_url = payload.get("source_url") if isinstance(payload, dict) else None
+    if not source_url or urlparse(source_url).scheme not in {"http", "https"}:
+        raise ValueError(
+            f"Dashboard dataset {short_name!r} has no usable source_url: {payload!r}"
+        )
+    return source_url
+
+
+def dataset_source_url(short_name: str) -> str:
+    """Resolve a Dashboard dataset short name to its published XML URL.
+
+    Publishers such as CAF rename the file on every release (the date is
+    part of the filename), so the URL is looked up through the Dashboard
+    API instead of being configured by hand. The resolved URL is cached on
+    disk with the same TTL as the XML itself; when the Dashboard cannot be
+    reached, the last resolved URL is reused so a running deployment keeps
+    serving (the XML download has its own stale-copy fallback).
+    """
+    cached = _cache.get("dataset_source_url")
+    if cached and cached[0] == short_name:
+        return cached[1]
+    target = get_settings().ensure_data_dir() / "xml" / f"{short_name}.source-url"
+    if _cache_is_fresh(target):
+        url = target.read_text().strip()
+    else:
+        try:
+            url = _fetch_dataset_source_url(short_name)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            if not target.exists():
+                raise FileNotFoundError(
+                    f"Could not resolve IATI dataset {short_name!r} through "
+                    f"{_dataset_api_url(short_name)} ({exc}). Check "
+                    "MCP_IATI_DATASET, or set MCP_IATI_XML_URL / "
+                    "MCP_IATI_XML_PATH instead."
+                ) from exc
+            url = target.read_text().strip()
+            warnings.warn(
+                f"Could not refresh the XML URL of IATI dataset {short_name!r}; "
+                f"using the last resolved URL {url}: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(url + "\n")
+    _cache["dataset_source_url"] = (short_name, url)
+    return url
+
+
 def xml_path() -> Path:
     """Path to the IATI XML file to load.
 
     MCP_IATI_XML_PATH points at a local file (no download). If it is absent,
-    MCP_IATI_XML_URL can point at a remote XML. Otherwise the sample named by
-    MCP_IATI_SAMPLE is fetched from okfn_iati on first use.
+    MCP_IATI_XML_URL can point at a remote XML, or MCP_IATI_DATASET at a
+    dataset registered in the IATI Dashboard (its XML URL is resolved through
+    the Dashboard API). Otherwise the sample named by MCP_IATI_SAMPLE is
+    fetched from the IADB hosting on first use.
     """
     settings = get_settings()
     if settings.xml_path:
         return settings.xml_path
     if settings.xml_url:
         return _download_configured_url(settings.xml_url)
+    if settings.dataset:
+        return _download_configured_url(dataset_source_url(settings.dataset))
     return _download_sample(settings.sample)
 
 
@@ -209,6 +282,8 @@ def xml_source() -> str:
         return str(settings.xml_path)
     if settings.xml_url:
         return settings.xml_url
+    if settings.dataset:
+        return dataset_source_url(settings.dataset)
     return f"{_SAMPLES_BASE_URL}/{settings.sample}"
 
 
@@ -219,6 +294,10 @@ def _source_cache_key() -> str:
         source = f"path:{settings.xml_path.resolve()}"
     elif settings.xml_url:
         source = f"url:{settings.xml_url}"
+    elif settings.dataset:
+        # Keyed by dataset, not by the resolved URL: a renamed release lands
+        # as a newer XML file, which already invalidates the CSV cache.
+        source = f"dataset:{settings.dataset}"
     else:
         source = f"sample:{settings.sample}"
     return hashlib.sha256(source.encode()).hexdigest()[:16]

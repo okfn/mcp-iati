@@ -21,12 +21,35 @@ actividades): el BID retiro 57 actividades (56 Implementation, 1 Post
 Completion, 17 con transacciones; entre ellas BR-L1673 Pro-Igualdade y
 BR-L1608 Piaui, citadas en varios reportes) y agrego 1. Las cifras
 absolutas de los reportes individuales (296, 44.369 M, etc.) corresponden
-al snapshot 2025; los hallazgos sobre comportamiento del chat siguen
-valiendo.
+al snapshot 2025. Los hallazgos sobre el comportamiento del chat describen
+la version evaluada el 2026-08-28; deben repetirse contra la version actual
+antes de tratarlos como estado de produccion.
 
 Esto agrega un hallazgo propio: el chat no puede decir que version del
 archivo usa (ver A7 y E27) y no hay forma de detectar que el publicador
 retiro actividades entre versiones. Ver items A7b y B15 en el plan.
+
+### Estado del repositorio verificado el 2026-09-24
+
+Hubo cambios posteriores a la evaluacion (2, 4 y 18 de septiembre). Este
+reporte conserva los resultados originales como evidencia historica, pero
+los siguientes puntos ya no describen completamente `main`:
+
+- Las tools de series anuales, sectores, rankings y transacciones ya pasan
+  `charts=`; queda pendiente comprobar su renderizado en el gateway.
+- `list_participating_organisations` usa un limite configurable de 300 por
+  defecto, no 100. Aun no separa resultados por rol ni elimina el limite.
+- `top_activities_by_amount` informa total, registros mostrados y limite;
+  no tiene un tope fijo de 100. Las tablas agregadas tambien informan conteo
+  mediante los metadatos de respuesta.
+- `transaction_totals_by_country` admite compromisos y desembolsos.
+- `search_activities` es insensible a mayusculas y acentos, busca tambien
+  organizaciones participantes y devuelve `matched_in`; siguen pendientes
+  pluralizacion, narrativas multilingues, indicadores y documentos.
+
+La suite del repositorio paso 320 tests el 2026-09-24. Esta verificacion no
+sustituye una nueva ejecucion de los 15 roles contra el gateway y el archivo
+actual.
 
 ## 1. Resultado global
 
@@ -137,11 +160,14 @@ espanol), emojis en encabezados, cifras recortadas al transcribir
 (10,763,949,000 -> 763,949,000), "sin monto publicado" para actividades que
 no consulto.
 
-### H6. Sin graficos ni exportacion (6/15 roles)
+### H6. Sin graficos ni exportacion en la version evaluada (6/15 roles)
 
-0 eventos `chart` en 150 respuestas: el plugin nunca pasa `charts=`. Los
-pedidos de grafico terminan en barras ASCII o un SVG vacio. No hay descarga
-CSV de tablas ni de listados.
+En la version evaluada hubo 0 eventos `chart` en 150 respuestas: el plugin
+no pasaba `charts=`. Los pedidos de grafico terminaron en barras ASCII o un
+SVG vacio. No habia descarga CSV de tablas ni de listados. Desde entonces,
+el plugin incorporo `charts=` en varias herramientas; falta repetir la prueba
+end-to-end para verificar el renderizado del gateway. La descarga CSV sigue
+pendiente.
 
 ### H7. Calidad del archivo del BID que el chat no puede diagnosticar
 
@@ -168,20 +194,25 @@ como feedback al publicador):
 - Solo 1 garantia (BR-U0002, finance type 1100); 100% OOF, 100% untied,
   100% USD; solo transaction types 2 y 3.
 
-## 3. Bugs concretos del plugin detectados
+## 3. Bugs concretos del plugin detectados en la version evaluada
 
-- `organisation_type` en `list_participating_organisations` lee el tipo de
-  la reporting-org, no de cada participante (experto-iati Q4).
+- `organisation_type` en `list_participating_organisations` leia el tipo de
+      la reporting-org, no de cada participante (experto-iati Q4). El resumen
+      actual ya toma el tipo de cada participante; la tabla agregada aun no
+      expone ese campo.
 - `activity_summary` muestra solo la primera narrativa de descripcion; en
   varias actividades es literalmente "EN" y la descripcion real esta en
   el segundo narrative (investigativo, ciudadano).
 - `activity_summary` no muestra org_ref, last-updated, budgets ni cantidad
   de documentos/results, lo que induce las negaciones de H1.
-- `list_participating_organisations` corta a 100 filas y oculta
-  cofinanciadores (Green Climate Fund 75 M en L1633, IFAD, CTF).
-- `top_activities_by_amount` limita a 100 de 255; `transaction_totals_by_year`
-  no devuelve fila TOTAL ni conteo; `transaction_totals_by_country` solo
-  devuelve compromisos.
+- `list_participating_organisations` cortaba a 100 filas y ocultaba
+  cofinanciadores (Green Climate Fund 75 M en L1633, IFAD, CTF). El limite
+  actual es configurable y por defecto 300; sigue pendiente eliminarlo o
+  permitir paginacion y separar por rol.
+- `top_activities_by_amount` limitaba a 100 de 255; actualmente no tiene
+  ese tope fijo y comunica total, registros mostrados y limite. Las tablas
+  agregadas comunican conteo en metadatos, aunque no necesariamente una fila
+  TOTAL. `transaction_totals_by_country` ya admite desembolsos.
 - `documents.csv` pierde la segunda category (A08) (okfn_iati).
 - Glosario: CollaborationType enumera "5 = Private sector outflows, 6 =
   Other" (no existe 5; 6 es Private Sector Outflows; existen 7 y 8).
@@ -353,17 +384,18 @@ se indique gateway, mcp-server u okfn_iati. Se marca `[x]` al terminar.
 
 ### Bloque 3 - Agregaciones que hoy el modelo hace a mano
 
-- [ ] 3.1 Fila TOTAL y conteo en toda tabla agregada
-      (`transaction_totals_by_*`, `top_activities_by_amount`); pasar
-      `total` en structuredContent.
+- [ ] 3.1 Fila TOTAL en toda tabla agregada
+      (`transaction_totals_by_*`, `top_activities_by_amount`). El conteo y
+      `total` ya se pasan en los metadatos de respuesta; falta una fila TOTAL
+      visible cuando sea apropiada.
 - [ ] 3.2 Tool `list_activities(filters)`: id, titulo, status, sector,
       accountable / implementing, compromiso, desembolso, saldo, fechas;
       filtros por sector, status, org, texto, rango de fechas; sin tope
       de 100.
 - [ ] 3.3 Tool `commitment_vs_disbursement(status=None, order)`: por
       actividad con brecha, ratio, dias hasta primer desembolso.
-- [ ] 3.4 Filtros `activity`, `org`, `sector`, `status` en
-      `transaction_totals_by_year`; tool
+- [ ] 3.4 Filtro `activity` en `transaction_totals_by_year`; los filtros
+      `org`, `sector` y `status` ya existen. Tool
       `transaction_totals_by_sector_and_year`.
 - [ ] 3.5 Tool generica `transaction_totals_by_category(field)` para
       activity_status, finance_type, flow_type, aid_type, participating
@@ -373,15 +405,16 @@ se indique gateway, mcp-server u okfn_iati. Se marca `[x]` al terminar.
       min_value, max_value, year, type, activity)`.
 - [ ] 3.7 Tool `activity_dates_table()`: planned vs actual, duracion,
       retraso, por actividad y agregado.
-- [ ] 3.8 Quitar el tope de 100 en `list_participating_organisations` y
-      separar por rol (oculta cofinanciadores como GCF, IFAD, CTF).
-- [ ] 3.9 `transaction_totals_by_country` debe devolver tambien
-      desembolsos.
+- [ ] 3.8 Quitar o paginar el limite de 300 en
+      `list_participating_organisations` y separar por rol (oculta
+      cofinanciadores como GCF, IFAD, CTF).
+- [x] 3.9 `transaction_totals_by_country` devuelve tambien desembolsos.
 
 ### Bloque 4 - Calidad de datos y bugs del plugin
 
-- [ ] 4.1 Bug: `organisation_type` en `list_participating_organisations`
-      lee el tipo de la reporting-org en vez del de cada participante.
+- [x] 4.1 El resumen de actividad toma `organisation_type` de cada
+      participante, no de la reporting-org. Pendiente separado: exponerlo
+      tambien en `list_participating_organisations`.
 - [ ] 4.2 Bug: glosario CollaborationType (codigo 5 inexistente; 6 es
       Private Sector Outflows; faltan 7 y 8); agregar "IATI" y "BID" al
       glosario.
@@ -399,9 +432,9 @@ se indique gateway, mcp-server u okfn_iati. Se marca `[x]` al terminar.
 
 ### Bloque 5 - Busqueda
 
-- [ ] 5.1 `search_activities`: multi-termino, sin acentos, singular /
-      plural, palabra completa para nombres de estado ("Para" no debe
-      matchear Parana / Paraiba).
+- [ ] 5.1 `search_activities`: multi-termino, singular / plural y palabra
+      completa para nombres de estado ("Para" no debe matchear Parana /
+      Paraiba). La busqueda sin acentos ya existe.
 - [ ] 5.2 `search_activities`: buscar en todas las narrativas (en / es /
       pt) de titulo y descripcion, en titulos de indicadores y de
       documentos; devolver `matched_in`; explicar cuando devuelve 0.
@@ -416,8 +449,9 @@ se indique gateway, mcp-server u okfn_iati. Se marca `[x]` al terminar.
 ### Bloque 6 - Gateway / UI
 
 - [ ] 6.1 Boton "descargar CSV" en cada tabla; tool `activities_export`.
-- [ ] 6.2 `charts=` en `transaction_totals_by_year` y `_by_sector`
-      (plugin) y verificar que el gateway los renderiza (hoy 0 charts).
+- [ ] 6.2 Verificar que el gateway renderiza los `charts=` ya emitidos por
+      `transaction_totals_by_year` y `_by_sector`; en la version evaluada
+      hubo 0 charts.
 - [ ] 6.3 Mostrar tablas de tool junto al texto para que las listas con
       IDs no dependan del resumen del modelo.
 - [ ] 6.4 Indicador de progreso durante rondas largas (20-55 tool calls);

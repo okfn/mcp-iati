@@ -207,6 +207,49 @@ export MCP_IATI_CACHE_TTL_SECONDS=2592000
 uv run mcp-server
 ```
 
+### Local CAF chat with a private XML
+
+The CAF chat runs as a **separate pair of processes** alongside the generic
+IATI deployment. It reuses this plugin and the sibling `mcp-server` and
+`mcp-chat-gateway` repositories; it does not require a code fork or changes
+to the source-selection logic.
+
+Keep the local XML outside Git in this repository under
+`data-samples/caf/` (that directory and all XML files are ignored). Give CAF
+its own cache directory so converted CSV tables can never be reused by another
+deployment.
+
+1. Copy `deploy/caf-mcp-server.env.example` to a private `deploy/caf-mcp-server.env`.
+  Set `MCP_IATI_XML_PATH` to the actual CAF XML and use a CAF-only
+  `MCP_IATI_DATA_DIR`.
+2. In the sibling `mcp-server` repository, install this plugin in its virtual
+  environment as described in [Adding this to a local mcp-server](#adding-this-to-a-local-mcp-server),
+  then load the profile and start the HTTP server:
+
+  ```bash
+  set -a
+  source ../mcp-iati/deploy/caf-mcp-server.env
+  set +a
+  uv run mcp-server
+  ```
+
+3. Copy `deploy/caf-chat-gateway.env.example` to a private
+  `deploy/caf-chat-gateway.env`, set the AI provider credentials, and copy
+  `deploy/gateway-overrides-caf.yaml` to
+  `../mcp-chat-gateway/static/i18n/overrides.yaml`. Then start the separate
+  gateway process from `mcp-chat-gateway`:
+
+  ```bash
+  set -a
+  source ../mcp-iati/deploy/caf-chat-gateway.env
+  set +a
+  uv run python app.py
+  ```
+
+The example gateway profile uses port `8065`, leaving the generic chat's
+default port `8064` untouched. For a production deployment, use externally
+managed secrets and paths instead of committing either private `.env` file.
+
 ### CSV tables used by the plugin
 
 | Table | Columns currently used | Relationship |

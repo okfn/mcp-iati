@@ -7,10 +7,21 @@ import pytest
 
 from mcp_iati import register_tools
 from mcp_iati.activities import queries
+from mcp_iati.config import get_settings
 from mcp_iati.glossary import (
     TOOL_GLOSSARY_TERMS,
     tool_glossary_text,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_dataset_setting(monkeypatch):
+    """Keep generic plugin-description tests independent of shell settings."""
+    monkeypatch.delenv("MCP_IATI_DATASET", raising=False)
+    monkeypatch.delenv("MCP_IATI_XML_PATH", raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_register_tools_adds_expected_tools(fake_mcp):
@@ -79,6 +90,29 @@ def test_plugin_sample_questions_quote_values_from_the_loaded_data(fake_mcp, see
     )
     assert "Give me a summary of activity IATI-001" in questions
     assert not any("XI-IATI-IADB-BR-L1231" in question for question in questions)
+
+
+def test_plugin_sample_questions_are_specific_to_caf(fake_mcp, seed_cache, monkeypatch):
+    monkeypatch.setenv("MCP_IATI_DATASET", "caf-actfile-46008-2603")
+    get_settings.cache_clear()
+
+    register_tools(fake_mcp)
+
+    questions = fake_mcp.plugin_info["sample_questions"]
+    assert "What does the CAF activity file contain?" in questions
+    assert 'Which CAF activities in Argentina in the sector "Transport" are still in implementation?' in questions
+    assert "Give me a summary of CAF activity IATI-001." in questions
+    assert "What does this IATI file contain?" in questions
+
+
+def test_plugin_sample_questions_detect_a_local_caf_file(fake_mcp, seed_cache, monkeypatch):
+    monkeypatch.setenv("MCP_IATI_XML_PATH", "/data/CAF-ActivityFile.xml")
+    get_settings.cache_clear()
+
+    register_tools(fake_mcp)
+
+    questions = fake_mcp.plugin_info["sample_questions"]
+    assert "What does the CAF activity file contain?" in questions
 
 
 def test_plugin_sample_questions_fall_back_when_no_data_is_loaded(fake_mcp, monkeypatch):

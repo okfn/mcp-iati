@@ -4,6 +4,7 @@ from mcp_iati import helpers as h
 from mcp_iati import terms
 from mcp_iati.activities.data import prepare_data
 from mcp_iati.activities import queries as activities
+from mcp_iati.config import get_settings
 from mcp_iati.glossary import tool_glossary_text
 
 
@@ -29,6 +30,62 @@ def register_resources(mcp):
     )
     def iati_standard() -> str:
         return terms.IATI_STANDARD_URL + "\n"
+
+
+def _sample_questions(example: dict[str, str]) -> list[str]:
+    """Return questions appropriate for the configured data publisher."""
+    settings = get_settings()
+    dataset = (settings.dataset or "").casefold()
+    local_filename = (
+        settings.xml_path.name.casefold() if settings.xml_path else ""
+    )
+    questions = [
+        "What does this IATI file contain?",
+        "What aid types are present in this IATI file?",
+        "What date range does this IATI file cover?",
+        "What does it mean for an activity to be in implementation?",
+        "What is a policy marker?",
+        "Is the reporting organisation also the one funding the project?",
+        "What activity statuses are present in this IATI file?",
+        "Which recipient countries are present in this IATI file?",
+        "Which sectors are present in this IATI file?",
+        f"Which activities in {example['country']} in the sector "
+        f"\"{example['sector']}\" are still in implementation?",
+        "Which organisations participate most often in this IATI file?",
+        f"Give me a summary of activity {example['activity']}",
+        f"Which organisations participate in activity {example['activity']}?",
+        f"Show the transactions for activity {example['activity']}",
+        "How much was committed and disbursed each year?",
+        "How much was committed and disbursed by each reporting organisation?",
+        "How much was committed by sector?",
+        "Which activities have the highest commitment totals?",
+        "Show annual commitments and disbursements from 2022 to 2024.",
+        "Chart the annual commitments and disbursements.",
+        "How is committed funding distributed across sectors?",
+        "What share of activities are still in implementation?",
+        "Which sectors have the most activities?",
+        f"Which sectors do the activities in {example['country']} cover?",
+        f"What are the top 5 activities by commitment in {example['country']}?",
+        "Which organisations, apart from the publisher, participate in the most activities?",
+    ]
+    if dataset.startswith("caf-") or local_filename.startswith("caf-"):
+        return questions + [
+            "What does the CAF activity file contain?",
+            "Which recipient countries appear in CAF activities?",
+            "Which sectors appear in CAF activities?",
+            f"Which CAF activities in {example['country']} in the sector "
+            f"\"{example['sector']}\" are still in implementation?",
+            f"Give me a summary of CAF activity {example['activity']}.",
+            f"Show the transactions for CAF activity {example['activity']}.",
+            "How much did CAF commit and disburse each year?",
+            "How much did CAF commit by sector?",
+            f"What are the top 5 CAF activities by commitment in {example['country']}?",
+            "How is CAF's committed funding distributed across sectors?",
+            "Which sectors have the most CAF activities?",
+            "Which organisations, apart from CAF, participate in the most activities?",
+        ] + questions
+
+    return questions
 
 
 def _register_iati_tools(mcp):  # noqa: C901
@@ -78,35 +135,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "another (sectors per country, countries of an organisation, "
             "statuses in a sector) call count_activities_by."
         ),
-        sample_questions=[
-            "What does this IATI file contain?",
-            "What aid types are present in this IATI file?",
-            "What date range does this IATI file cover?",
-            "What does it mean for an activity to be in implementation?",
-            "What is a policy marker?",
-            "Is the reporting organisation also the one funding the project?",
-            "What activity statuses are present in this IATI file?",
-            "Which recipient countries are present in this IATI file?",
-            "Which sectors are present in this IATI file?",
-            f"Which activities in {example['country']} in the sector "
-            f"\"{example['sector']}\" are still in implementation?",
-            "Which organisations participate most often in this IATI file?",
-            f"Give me a summary of activity {example['activity']}",
-            f"Which organisations participate in activity {example['activity']}?",
-            f"Show the transactions for activity {example['activity']}",
-            "How much was committed and disbursed each year?",
-            "How much was committed and disbursed by each reporting organisation?",
-            "How much was committed by sector?",
-            "Which activities have the highest commitment totals?",
-            "Show annual commitments and disbursements from 2022 to 2024.",
-            "Chart the annual commitments and disbursements.",
-            "How is committed funding distributed across sectors?",
-            "What share of activities are still in implementation?",
-            "Which sectors have the most activities?",
-            f"Which sectors do the activities in {example['country']} cover?",
-            f"What are the top 5 activities by commitment in {example['country']}?",
-            "Which organisations, apart from the publisher, participate in the most activities?",
-        ],
+        sample_questions=_sample_questions(example),
     )
 
     # The tool name stays `no_tool_disponible`: the base server's system

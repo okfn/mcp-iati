@@ -146,9 +146,7 @@ def test_unresolvable_dataset_without_cache_is_an_error(monkeypatch, tmp_path):
     data._cache.clear()
 
     def failing_fetch(short_name):
-        raise urllib.error.HTTPError(
-            data._dataset_api_url(short_name), 404, "Not Found", {}, None
-        )
+        raise urllib.error.HTTPError(data._dataset_api_url(short_name), 404, "Not Found", {}, None)
 
     monkeypatch.setattr(data, "_fetch_dataset_source_url", failing_fetch)
 

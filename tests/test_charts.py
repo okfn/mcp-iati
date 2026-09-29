@@ -30,6 +30,7 @@ def _charts(res):
 
 # --- text_result -----------------------------------------------------------
 
+
 def test_text_result_forwards_charts_and_tells_the_ai():
     spec = charts.pie_chart("Shares", [("a", 1), ("b", 3)])
     res = h.text_result("summary", source_url="http://src", charts=[spec])
@@ -44,6 +45,7 @@ def test_text_result_without_charts_has_no_note():
 
 
 # --- builders --------------------------------------------------------------
+
 
 def test_pie_chart_has_one_colour_per_slice():
     spec = charts.pie_chart("t", [("a", 1), ("b", None), ("c", float("nan"))])
@@ -72,7 +74,9 @@ def test_top_n_with_other_drops_non_positive_and_folds_tail():
         ("Other (1 more)", 1.0),
     ]
     assert charts.top_n_with_other(items, top_n=10) == [
-        ("d", 10.0), ("a", 5.0), ("e", 1.0),
+        ("d", 10.0),
+        ("a", 5.0),
+        ("e", 1.0),
     ]
 
 
@@ -89,6 +93,7 @@ def test_short_label_and_vocabulary_label():
 
 # --- queries over the synthetic fixture ------------------------------------
 
+
 @pytest.fixture
 def richer_cache(seed_cache):
     """Extend the shared fixture so aggregates have at least two points.
@@ -97,39 +102,60 @@ def richer_cache(seed_cache):
     a third participating organisation.
     """
     cache = data_mod._cache
-    cache["dataframe:transactions"] = pd.concat([
-        cache["dataframe:transactions"],
-        pd.DataFrame([{
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "transaction_date": "2023-05-01",
-            "value": 2000.0,
-            "currency": "USD",
-            "description": "Health commitment",
-        }]),
-    ], ignore_index=True)
+    cache["dataframe:transactions"] = pd.concat(
+        [
+            cache["dataframe:transactions"],
+            pd.DataFrame(
+                [
+                    {
+                        "activity_identifier": "IATI-002",
+                        "transaction_type": "2",
+                        "transaction_date": "2023-05-01",
+                        "value": 2000.0,
+                        "currency": "USD",
+                        "description": "Health commitment",
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
     sectors = cache["dataframe:sectors"]
     sectors.loc[sectors["activity_identifier"] == "IATI-002", "percentage"] = 60.0
-    cache["dataframe:sectors"] = pd.concat([
-        sectors,
-        pd.DataFrame([{
-            "activity_identifier": "IATI-002",
-            "sector_code": "12240",
-            "sector_name": "Basic nutrition",
-            "vocabulary": "1",
-            "percentage": 40.0,
-        }]),
-    ], ignore_index=True)
-    cache["dataframe:participating_orgs"] = pd.concat([
-        cache["dataframe:participating_orgs"],
-        pd.DataFrame([{
-            "activity_identifier": "IATI-002",
-            "org_ref": "ORG-020",
-            "org_name": "Ministry of Health",
-            "org_type": "10",
-            "role": "4",
-        }]),
-    ], ignore_index=True)
+    cache["dataframe:sectors"] = pd.concat(
+        [
+            sectors,
+            pd.DataFrame(
+                [
+                    {
+                        "activity_identifier": "IATI-002",
+                        "sector_code": "12240",
+                        "sector_name": "Basic nutrition",
+                        "vocabulary": "1",
+                        "percentage": 40.0,
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+    cache["dataframe:participating_orgs"] = pd.concat(
+        [
+            cache["dataframe:participating_orgs"],
+            pd.DataFrame(
+                [
+                    {
+                        "activity_identifier": "IATI-002",
+                        "org_ref": "ORG-020",
+                        "org_name": "Ministry of Health",
+                        "org_type": "10",
+                        "role": "4",
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
     return seed_cache
 
 

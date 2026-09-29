@@ -47,14 +47,10 @@ def _parse_positive_seconds(raw_value: str, variable_name: str) -> int:
     try:
         value = int(raw_value)
     except ValueError as error:
-        raise ValueError(
-            f"{variable_name} must be an integer."
-        ) from error
+        raise ValueError(f"{variable_name} must be an integer.") from error
 
     if value <= 0:
-        raise ValueError(
-            f"{variable_name} must be greater than zero."
-        )
+        raise ValueError(f"{variable_name} must be greater than zero.")
     return value
 
 
@@ -101,11 +97,7 @@ def get_settings() -> IatiSettings:
             "MCP_IATI_DASHBOARD_API_URL",
             DEFAULT_DASHBOARD_API_URL,
         ).rstrip("/"),
-        data_dir=(
-            Path(raw_data_dir).expanduser()
-            if raw_data_dir
-            else user_data_path(APP_NAME)
-        ),
+        data_dir=(Path(raw_data_dir).expanduser() if raw_data_dir else user_data_path(APP_NAME)),
         cache_ttl_seconds=_parse_cache_ttl(raw_cache_ttl),
         stale_retry_seconds=_parse_positive_seconds(
             raw_stale_retry,

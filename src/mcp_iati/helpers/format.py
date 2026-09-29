@@ -55,22 +55,12 @@ NO_SPECULATION = (
 )
 
 
-_STATUS_LABELS = {
-    str(status.value): status.name.replace("_", " ").title()
-    for status in ActivityStatus
-}
+_STATUS_LABELS = {str(status.value): status.name.replace("_", " ").title() for status in ActivityStatus}
 _TRANSACTION_TYPE_LABELS = {
-    str(transaction_type.value): transaction_type.name.replace("_", " ").title()
-    for transaction_type in TransactionType
+    str(transaction_type.value): transaction_type.name.replace("_", " ").title() for transaction_type in TransactionType
 }
-_ORGANISATION_ROLE_LABELS = {
-    str(role.value): role.name.replace("_", " ").title()
-    for role in OrganisationRole
-}
-_ACTIVITY_DATE_TYPE_LABELS = {
-    str(date_type.value): date_type.name.replace("_", " ").lower()
-    for date_type in ActivityDateType
-}
+_ORGANISATION_ROLE_LABELS = {str(role.value): role.name.replace("_", " ").title() for role in OrganisationRole}
+_ACTIVITY_DATE_TYPE_LABELS = {str(date_type.value): date_type.name.replace("_", " ").lower() for date_type in ActivityDateType}
 _CATEGORY_ENUMS = {
     "organisation_type": OrganisationType,
     "aid_type": AidType,
@@ -87,9 +77,7 @@ _HUMANITARIAN_LABELS = {
 }
 # OECD DAC 5-digit purpose codes (sector vocabulary 1): member name is the
 # code, member value is the standard name.
-_DAC_SECTOR_NAMES = {
-    member.name: member.value for member in SectorCategory
-}
+_DAC_SECTOR_NAMES = {member.name: member.value for member in SectorCategory}
 
 
 def _table_to_text(table):
@@ -114,16 +102,9 @@ def _query_details_text(
     if shown is not None:
         details.append(f"Records shown: {shown}")
 
-    applied_filters = {
-        name: value
-        for name, value in (filters or {}).items()
-        if value is not None and value != ""
-    }
+    applied_filters = {name: value for name, value in (filters or {}).items() if value is not None and value != ""}
     if applied_filters:
-        formatted_filters = ", ".join(
-            f"{name}={value}"
-            for name, value in applied_filters.items()
-        )
+        formatted_filters = ", ".join(f"{name}={value}" for name, value in applied_filters.items())
         details.append(f"Applied filters: {formatted_filters}")
 
     if limit is not None:
@@ -144,11 +125,7 @@ def _append_relevant_terms(body: str, tool_name: str | None) -> str:
     if not definitions:
         return body
 
-    return (
-        f"{body}\n\n"
-        "=== Relevant IATI terms ===\n"
-        f"{definitions}"
-    )
+    return f"{body}\n\n=== Relevant IATI terms ===\n{definitions}"
 
 
 def _sources_with_iati_standard(
@@ -159,16 +136,13 @@ def _sources_with_iati_standard(
     if not tool_name or not tool_glossary_text(tool_name):
         return source_url
 
-    sources = (
-        list(source_url)
-        if isinstance(source_url, list)
-        else [source_url]
-    )
+    sources = list(source_url) if isinstance(source_url, list) else [source_url]
 
     if IATI_STANDARD_URL not in sources:
         sources.append(IATI_STANDARD_URL)
 
     return sources
+
 
 def text_result(
     text: str,
@@ -207,11 +181,7 @@ def text_result(
     body = _append_relevant_terms(body, tool_name)
 
     if table:
-        body += (
-            f"\n\n{ALREADY_TABLE}\n\n"
-            "=== Full data (for your analysis) ===\n"
-            + _table_to_text(table)
-        )
+        body += f"\n\n{ALREADY_TABLE}\n\n=== Full data (for your analysis) ===\n" + _table_to_text(table)
     if charts:
         body += f"\n\n{ALREADY_CHART}"
     body = f"{body}\n\n{NO_SPECULATION}"
@@ -265,6 +235,41 @@ def activity_date_type_label(value: Any) -> str:
     return _ACTIVITY_DATE_TYPE_LABELS.get(key, f"date type {key}")
 
 
+_DOCUMENT_CATEGORY_LABELS = {
+    "A01": "Pre- and post-project impact appraisal",
+    "A02": "Objectives / Purpose of activity",
+    "A03": "Intended ultimate beneficiaries",
+    "A04": "Conditions",
+    "A05": "Budget",
+    "A06": "Summary information about contract",
+    "A07": "Review of project performance and evaluation",
+    "A08": "Results, outcomes and outputs",
+    "A09": "Memorandum of understanding",
+    "A10": "Tender",
+    "A11": "Contract",
+    "A12": "Activity web page",
+}
+
+_CONTACT_TYPE_LABELS = {
+    "1": "General Enquiries",
+    "2": "Project Management",
+    "3": "Financial Management",
+    "4": "Communications",
+}
+
+
+def document_category_label(value: Any) -> str:
+    """Return the IATI DocumentCategory label while preserving unknown codes."""
+    key = str(value).strip()
+    return _DOCUMENT_CATEGORY_LABELS.get(key, f"Unknown document category ({key})")
+
+
+def contact_type_label(value: Any) -> str:
+    """Return the IATI ContactType label while preserving unknown codes."""
+    key = str(value).strip()
+    return _CONTACT_TYPE_LABELS.get(key, f"Unknown contact type ({key})")
+
+
 def category_value_label(category: str, value: Any) -> str:
     """Return a readable label for a supported categorical IATI code."""
     selected_category = str(category).strip().casefold()
@@ -310,8 +315,5 @@ def build_table(
     formatters = formatters or {}
     table: list[list[Any]] = [[header for _, header in columns]]
     for row in rows:
-        table.append([
-            formatters.get(column, lambda value: value)(row[column])
-            for column, _ in columns
-        ])
+        table.append([formatters.get(column, lambda value: value)(row[column]) for column, _ in columns])
     return table

@@ -20,9 +20,21 @@ from okfn_iati.enums import Sector_Vocabulary
 
 # Tableau-10, the same default palette as the Uruguay plugin.
 PALETTE = [
-    "#1f77b4", "#2ca02c", "#ff7f0e", "#8c564b", "#7f7f7f",
-    "#9467bd", "#d62728", "#17becf", "#bcbd22", "#e377c2",
-    "#aec7e8", "#98df8a", "#ffbb78", "#c49c94", "#c7c7c7",
+    "#1f77b4",
+    "#2ca02c",
+    "#ff7f0e",
+    "#8c564b",
+    "#7f7f7f",
+    "#9467bd",
+    "#d62728",
+    "#17becf",
+    "#bcbd22",
+    "#e377c2",
+    "#aec7e8",
+    "#98df8a",
+    "#ffbb78",
+    "#c49c94",
+    "#c7c7c7",
 ]
 
 # Slices/bars drawn before the rest is folded into "Other".
@@ -31,16 +43,15 @@ DEFAULT_TOP_N = 10
 # Maximum characters kept on an axis label before adding an ellipsis.
 LABEL_MAX_CHARS = 40
 
-_VOCABULARY_LABELS = {
-    str(member.value): member.name.replace("_", " ").title()
-    for member in Sector_Vocabulary
-}
-_VOCABULARY_LABELS.update({
-    "1": "OECD DAC purpose codes",
-    "2": "OECD DAC sector categories",
-    "98": "Reporting organisation vocabulary 2",
-    "99": "Reporting organisation vocabulary",
-})
+_VOCABULARY_LABELS = {str(member.value): member.name.replace("_", " ").title() for member in Sector_Vocabulary}
+_VOCABULARY_LABELS.update(
+    {
+        "1": "OECD DAC purpose codes",
+        "2": "OECD DAC sector categories",
+        "98": "Reporting organisation vocabulary 2",
+        "99": "Reporting organisation vocabulary",
+    }
+)
 
 
 def _color(index: int) -> str:
@@ -85,19 +96,17 @@ def top_n_with_other(
     whole. ``items`` may arrive in any order; the result is sorted
     descending with the "Other" entry last.
     """
-    positive = [
-        (str(label), _safe_float(value))
-        for label, value in items
-        if _safe_float(value) > 0
-    ]
+    positive = [(str(label), _safe_float(value)) for label, value in items if _safe_float(value) > 0]
     positive.sort(key=lambda item: item[1], reverse=True)
     head = positive[:top_n]
     tail = positive[top_n:]
     if tail:
-        head.append((
-            f"{other_label} ({len(tail)} more)",
-            sum(value for _, value in tail),
-        ))
+        head.append(
+            (
+                f"{other_label} ({len(tail)} more)",
+                sum(value for _, value in tail),
+            )
+        )
     return head
 
 
@@ -109,10 +118,12 @@ def pie_chart(title: str, slices: Sequence[tuple[str, float]]) -> dict[str, Any]
         "type": "pie",
         "title": title,
         "labels": labels,
-        "datasets": [{
-            "data": values,
-            "backgroundColor": [_color(i) for i in range(len(labels))],
-        }],
+        "datasets": [
+            {
+                "data": values,
+                "backgroundColor": [_color(i) for i in range(len(labels))],
+            }
+        ],
     }
 
 

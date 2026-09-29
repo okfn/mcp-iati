@@ -15,9 +15,7 @@ def _text(result):
 def test_define_term_single_match_returns_definition_table():
     result = define_term("disbursement")
 
-    assert _text(result).startswith(
-        "Found 1 IATI glossary entry(ies) matching 'disbursement'."
-    )
+    assert _text(result).startswith("Found 1 IATI glossary entry(ies) matching 'disbursement'.")
     assert result.structuredContent["table"] == [
         ["Term", "Definition"],
         ["disbursement", IATI_GLOSSARY["disbursement"]],

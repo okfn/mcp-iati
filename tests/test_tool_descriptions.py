@@ -39,6 +39,21 @@ def test_register_tools_adds_expected_tools(fake_mcp):
         "transaction_totals_by_country",
         "top_activities_by_amount",
         "count_activities_by",
+        "totals_by_year",
+        "top_funders",
+        "top_receivers",
+        "top_activities",
+        "execution_gap",
+        "budget_vs_spend",
+        "funding_breakdown",
+        "funding_by_country",
+        "funding_by_sector",
+        "humanitarian_split",
+        "activity_full_record",
+        "activities_by_organisation",
+        "activity_results",
+        "activity_documents",
+        "activity_contacts",
         "define_term",
     ]
 
@@ -73,10 +88,7 @@ def test_plugin_sample_questions_quote_values_from_the_loaded_data(fake_mcp, see
     questions = fake_mcp.plugin_info["sample_questions"]
     # IATI-001 is the only activity in implementation (Argentina, Transport)
     # and the one with the most transactions.
-    assert (
-        'Which activities in Argentina in the sector "Transport" are still in implementation?'
-        in questions
-    )
+    assert 'Which activities in Argentina in the sector "Transport" are still in implementation?' in questions
     assert "Give me a summary of activity IATI-001" in questions
     assert not any("XI-IATI-IADB-BR-L1231" in question for question in questions)
 
@@ -106,6 +118,7 @@ def test_no_tool_disponible_returns_clear_fallback_message(fake_mcp):
     assert "only answers questions about the loaded IATI activities" in text
     assert "Reason: not a question about IATI activities." in text
 
+
 @pytest.mark.parametrize(
     "tool_name",
     TOOL_GLOSSARY_TERMS,
@@ -118,6 +131,7 @@ def test_tool_descriptions_use_central_glossary(fake_mcp, tool_name):
 
     assert expected
     assert expected in description
+
 
 def test_tool_description_excludes_unrelated_terms(fake_mcp):
     register_tools(fake_mcp)

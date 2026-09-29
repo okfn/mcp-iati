@@ -4,6 +4,7 @@ from mcp_iati import helpers as h
 from mcp_iati import terms
 from mcp_iati.activities.data import prepare_data
 from mcp_iati.activities import queries as activities
+from mcp_iati.activities import advanced
 from mcp_iati.glossary import tool_glossary_text
 
 
@@ -88,8 +89,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             "What activity statuses are present in this IATI file?",
             "Which recipient countries are present in this IATI file?",
             "Which sectors are present in this IATI file?",
-            f"Which activities in {example['country']} in the sector "
-            f"\"{example['sector']}\" are still in implementation?",
+            f'Which activities in {example["country"]} in the sector "{example["sector"]}" are still in implementation?',
             "Which organisations participate most often in this IATI file?",
             f"Give me a summary of activity {example['activity']}",
             f"Which organisations participate in activity {example['activity']}?",
@@ -132,8 +132,7 @@ def _register_iati_tools(mcp):  # noqa: C901
     def file_overview() -> DataToolOutput:
         return activities.file_overview()
 
-    file_overview.__doc__ = (
-        """Summarise the contents of the configured IATI file.
+    file_overview.__doc__ = """Summarise the contents of the configured IATI file.
 
         Use this tool for general questions such as what the file contains,
         how many activities it has, which organisations report them, which
@@ -149,9 +148,7 @@ def _register_iati_tools(mcp):  # noqa: C901
         - Transaction totals by type and currency.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("file_overview")
-    )
+        """ + tool_glossary_text("file_overview")
     mcp.tool()(file_overview)
 
     def date_coverage(
@@ -159,8 +156,7 @@ def _register_iati_tools(mcp):  # noqa: C901
     ) -> DataToolOutput:
         return activities.date_coverage(date_kind=date_kind)
 
-    date_coverage.__doc__ = (
-        """Report the date range covered by the configured IATI data.
+    date_coverage.__doc__ = """Report the date range covered by the configured IATI data.
 
         Use date_kind to select activity dates, transaction dates or both:
         - activities: planned and actual start and end dates (read from the
@@ -173,9 +169,7 @@ def _register_iati_tools(mcp):  # noqa: C901
         counts of records containing valid, missing or invalid dates.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("date_coverage")
-    )
+        """ + tool_glossary_text("date_coverage")
     mcp.tool()(date_coverage)
 
     def list_category_values(
@@ -187,8 +181,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    list_category_values.__doc__ = (
-        """List the values present in a categorical IATI field.
+    list_category_values.__doc__ = """List the values present in a categorical IATI field.
 
         Use this tool to explore available values before applying filters.
         Supported categories are:
@@ -208,16 +201,13 @@ def _register_iati_tools(mcp):  # noqa: C901
         when applicable, and the number of records containing it.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_category_values")
-    )
+        """ + tool_glossary_text("list_category_values")
     mcp.tool()(list_category_values)
 
     def search_activities(text: str, limit: int = 10) -> DataToolOutput:
         return activities.search_activities(text, limit=limit)
 
-    search_activities.__doc__ = (
-        """Search IATI activities whose title, description, sector names or
+    search_activities.__doc__ = """Search IATI activities whose title, description, sector names or
         participating organisation names contain the given text.
 
         Use this tool for topic or keyword questions, such as activities
@@ -237,9 +227,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             matching sector and organisation names).
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("search_activities")
-    )
+        """ + tool_glossary_text("search_activities")
     mcp.tool()(search_activities)
 
     def filter_activities(
@@ -259,8 +247,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    filter_activities.__doc__ = (
-        """Filter IATI activities by any combination of recipient country,
+    filter_activities.__doc__ = """Filter IATI activities by any combination of recipient country,
         sector, participating organisation, activity status and free text.
 
         Use this tool whenever a question combines criteria ("health
@@ -303,16 +290,13 @@ def _register_iati_tools(mcp):  # noqa: C901
             matched organisations (with roles) for the filters applied.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("filter_activities")
-    )
+        """ + tool_glossary_text("filter_activities")
     mcp.tool()(filter_activities)
 
     def list_activity_statuses() -> DataToolOutput:
         return activities.list_activity_statuses()
 
-    list_activity_statuses.__doc__ = (
-        """List the activity statuses present in the loaded IATI data.
+    list_activity_statuses.__doc__ = """List the activity statuses present in the loaded IATI data.
 
         Use this tool to discover which lifecycle statuses are available
         before filtering or analysing activities.
@@ -322,17 +306,13 @@ def _register_iati_tools(mcp):  # noqa: C901
             and the number of activities using it.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_activity_statuses")
-    )
+        """ + tool_glossary_text("list_activity_statuses")
     mcp.tool()(list_activity_statuses)
-
 
     def list_reporting_organisations() -> DataToolOutput:
         return activities.list_reporting_organisations()
 
-    list_reporting_organisations.__doc__ = (
-        """List the organisations that report activities in the loaded
+    list_reporting_organisations.__doc__ = """List the organisations that report activities in the loaded
         IATI data.
 
         The reporting organisation is responsible for publishing and
@@ -344,19 +324,15 @@ def _register_iati_tools(mcp):  # noqa: C901
             of activities reported.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_reporting_organisations")
-    )
+        """ + tool_glossary_text("list_reporting_organisations")
     mcp.tool()(list_reporting_organisations)
-
 
     def list_participating_organisations(
         limit: int = 300,
     ) -> DataToolOutput:
         return activities.list_participating_organisations(limit=limit)
 
-    list_participating_organisations.__doc__ = (
-        """List all the organisations participating in activities of the
+    list_participating_organisations.__doc__ = """List all the organisations participating in activities of the
         loaded IATI data, ordered by number of activities.
 
         Use this tool for aggregate questions about participating
@@ -374,17 +350,13 @@ def _register_iati_tools(mcp):  # noqa: C901
             participates in.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_participating_organisations")
-    )
+        """ + tool_glossary_text("list_participating_organisations")
     mcp.tool()(list_participating_organisations)
-
 
     def list_recipient_countries() -> DataToolOutput:
         return activities.list_recipient_countries()
 
-    list_recipient_countries.__doc__ = (
-        """List the recipient countries present in the loaded IATI data.
+    list_recipient_countries.__doc__ = """List the recipient countries present in the loaded IATI data.
 
         Use this tool to discover which country codes are available before
         filtering activities by recipient country.
@@ -394,9 +366,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             number of related activities.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_recipient_countries")
-    )
+        """ + tool_glossary_text("list_recipient_countries")
     mcp.tool()(list_recipient_countries)
 
     def filter_activities_by_country(
@@ -408,8 +378,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    filter_activities_by_country.__doc__ = (
-        """Filter IATI activities by recipient country.
+    filter_activities_by_country.__doc__ = """Filter IATI activities by recipient country.
 
         The country may be provided as an ISO country code, such as "BR",
         or as the country name published in the IATI data, such as "Brazil".
@@ -428,11 +397,8 @@ def _register_iati_tools(mcp):  # noqa: C901
             statuses and recipient-country information.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("filter_activities_by_country")
-    )
+        """ + tool_glossary_text("filter_activities_by_country")
     mcp.tool()(filter_activities_by_country)
-
 
     def list_sectors(
         limit: int = 100,
@@ -447,8 +413,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             status=status,
         )
 
-    list_sectors.__doc__ = (
-        """List the sectors present in the loaded IATI data, with the
+    list_sectors.__doc__ = """List the sectors present in the loaded IATI data, with the
             number of activities in each.
 
         Use this tool to discover the available sector codes and
@@ -470,11 +435,8 @@ def _register_iati_tools(mcp):  # noqa: C901
             number of related activities.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("list_sectors")
-    )
+        """ + tool_glossary_text("list_sectors")
     mcp.tool()(list_sectors)
-
 
     def filter_activities_by_sector(
         sector: str,
@@ -485,8 +447,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    filter_activities_by_sector.__doc__ = (
-        """Filter IATI activities by sector.
+    filter_activities_by_sector.__doc__ = """Filter IATI activities by sector.
 
         The sector may be provided as a code (a 5-digit OECD DAC purpose
         code such as "33210", or a publisher-specific code) or as a sector
@@ -508,11 +469,8 @@ def _register_iati_tools(mcp):  # noqa: C901
             statuses and the matched sector names.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("filter_activities_by_sector")
-    )
+        """ + tool_glossary_text("filter_activities_by_sector")
     mcp.tool()(filter_activities_by_sector)
-
 
     def filter_activities_by_participating_org(
         organisation: str,
@@ -523,8 +481,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    filter_activities_by_participating_org.__doc__ = (
-        """Filter IATI activities by participating organisation.
+    filter_activities_by_participating_org.__doc__ = """Filter IATI activities by participating organisation.
 
         The organisation may be provided as an IATI organisation reference
         or as a name, preferably exactly as published (see
@@ -548,17 +505,13 @@ def _register_iati_tools(mcp):  # noqa: C901
             statuses and the matched organisations with their roles.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("filter_activities_by_participating_org")
-    )
+        """ + tool_glossary_text("filter_activities_by_participating_org")
     mcp.tool()(filter_activities_by_participating_org)
-
 
     def activity_summary(iati_identifier: str) -> DataToolOutput:
         return activities.activity_summary(iati_identifier)
 
-    activity_summary.__doc__ = (
-        """Return the main details of an IATI activity: title, status,
+    activity_summary.__doc__ = """Return the main details of an IATI activity: title, status,
         description, dates, recipient country, sectors, reporting and
         participating organisations (with their roles), default
         classifications and totals per transaction type.
@@ -572,9 +525,7 @@ def _register_iati_tools(mcp):  # noqa: C901
                 Obtained with search_activities.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("activity_summary")
-    )
+        """ + tool_glossary_text("activity_summary")
     mcp.tool()(activity_summary)
 
     def activity_transactions(
@@ -586,8 +537,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    activity_transactions.__doc__ = (
-        """List the transactions associated with an IATI activity.
+    activity_transactions.__doc__ = """List the transactions associated with an IATI activity.
 
         Transactions are returned in chronological order and include their
         type, value, currency and published description.
@@ -601,9 +551,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             requested activity.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("activity_transactions")
-    )
+        """ + tool_glossary_text("activity_transactions")
     mcp.tool()(activity_transactions)
 
     def transaction_totals_by_year(
@@ -623,8 +571,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             status=status,
         )
 
-    transaction_totals_by_year.__doc__ = (
-        """Group commitments and disbursements by year and currency.
+    transaction_totals_by_year.__doc__ = """Group commitments and disbursements by year and currency.
 
         Only commitment and disbursement transactions are included. Amounts
         with different currencies are always reported separately. The
@@ -647,9 +594,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             and total amount.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("transaction_totals_by_year")
-    )
+        """ + tool_glossary_text("transaction_totals_by_year")
     mcp.tool()(transaction_totals_by_year)
 
     def transaction_totals_by_organisation(
@@ -657,8 +602,7 @@ def _register_iati_tools(mcp):  # noqa: C901
     ) -> DataToolOutput:
         return activities.transaction_totals_by_organisation(limit=limit)
 
-    transaction_totals_by_organisation.__doc__ = (
-        """Group commitments and disbursements by reporting organisation.
+    transaction_totals_by_organisation.__doc__ = """Group commitments and disbursements by reporting organisation.
 
         Amounts with different currencies and transaction types are reported
         separately. The reporting organisation publishes the activity data and
@@ -673,9 +617,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             transaction type, currency and total amount.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("transaction_totals_by_organisation")
-    )
+        """ + tool_glossary_text("transaction_totals_by_organisation")
     mcp.tool()(transaction_totals_by_organisation)
 
     def transaction_totals_by_sector(
@@ -697,8 +639,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             status=status,
         )
 
-    transaction_totals_by_sector.__doc__ = (
-        """Allocate commitments and disbursements across sectors.
+    transaction_totals_by_sector.__doc__ = """Allocate commitments and disbursements across sectors.
 
         Amounts are distributed using the published sector percentages.
         Different vocabularies and currencies are reported separately. The
@@ -724,9 +665,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             currency and allocated total amount.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("transaction_totals_by_sector")
-    )
+        """ + tool_glossary_text("transaction_totals_by_sector")
     mcp.tool()(transaction_totals_by_sector)
 
     def transaction_totals_by_country(
@@ -746,8 +685,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             status=status,
         )
 
-    transaction_totals_by_country.__doc__ = (
-        """Group commitments and disbursements by recipient country.
+    transaction_totals_by_country.__doc__ = """Group commitments and disbursements by recipient country.
 
         Amounts with different currencies and transaction types are reported
         separately. Missing country names fall back to the country code, and
@@ -771,9 +709,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             currency and total amount.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("transaction_totals_by_country")
-    )
+        """ + tool_glossary_text("transaction_totals_by_country")
     mcp.tool()(transaction_totals_by_country)
 
     def top_activities_by_amount(
@@ -795,8 +731,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             status=status,
         )
 
-    top_activities_by_amount.__doc__ = (
-        """List activities with the highest commitment or disbursement totals.
+    top_activities_by_amount.__doc__ = """List activities with the highest commitment or disbursement totals.
 
         Rankings are calculated independently for each currency, avoiding
         comparisons between amounts expressed in different currencies. The
@@ -822,9 +757,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             and total amount.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("top_activities_by_amount")
-    )
+        """ + tool_glossary_text("top_activities_by_amount")
     mcp.tool()(top_activities_by_amount)
 
     def count_activities_by(
@@ -844,8 +777,7 @@ def _register_iati_tools(mcp):  # noqa: C901
             limit=limit,
         )
 
-    count_activities_by.__doc__ = (
-        """Count activities per value of one dimension, optionally inside
+    count_activities_by.__doc__ = """Count activities per value of one dimension, optionally inside
             filters on the other dimensions (a "group by").
 
         Use it for breakdowns such as "which sectors do the activities in
@@ -873,10 +805,30 @@ def _register_iati_tools(mcp):  # noqa: C901
             number of activities, ordered by that number, plus a bar chart.
 
         Relevant IATI terms:
-        """
-        + tool_glossary_text("count_activities_by")
-    )
+        """ + tool_glossary_text("count_activities_by")
     mcp.tool()(count_activities_by)
+
+    # Higher-level investigative tools. Their query logic remains in the
+    # activities package; registration here keeps this module declarative.
+    for tool in (
+        advanced.totals_by_year,
+        advanced.top_funders,
+        advanced.top_receivers,
+        advanced.top_activities,
+        advanced.execution_gap,
+        advanced.budget_vs_spend,
+        advanced.funding_breakdown,
+        advanced.funding_by_country,
+        advanced.funding_by_sector,
+        advanced.humanitarian_split,
+        advanced.activity_full_record,
+        advanced.activities_by_organisation,
+        advanced.activity_results,
+        advanced.activity_documents,
+        advanced.activity_contacts,
+    ):
+        tool.__doc__ = (tool.__doc__ or tool.__name__.replace("_", " ").capitalize()) + "\n\n" + tool_glossary_text(tool.__name__)
+        mcp.tool()(tool)
 
     @mcp.tool()
     def define_term(term: str) -> DataToolOutput:

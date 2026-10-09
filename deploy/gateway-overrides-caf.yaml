@@ -25,18 +25,18 @@ es:
   nav:
     brand: Open Data AI Explorer
   landing:
-    title: Preguntale a los datos IATI de CAF
-    tagline: 'Respuestas construidas solo con el archivo oficial de actividades IATI que publica <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF, Banco de Desarrollo de America Latina y el Caribe</a>: sus actividades y transacciones de desarrollo, tal como las declara bajo el estandar IATI. Cada respuesta sale de una herramienta sobre ese archivo, nunca del conocimiento propio del modelo.'
-    placeholder: Pregunta sobre actividades, paises, sectores o transacciones de CAF...
+    title: Pregúntale a los datos IATI de CAF
+    tagline: 'Respuestas construidas solo con el archivo oficial de actividades IATI que publica <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF, Banco de Desarrollo de América Latina y el Caribe</a>: sus actividades y transacciones de desarrollo, tal como las declara bajo el estándar IATI. Cada respuesta sale de una herramienta sobre ese archivo, nunca del conocimiento propio del modelo.'
+    placeholder: Pregunta sobre actividades, países, sectores o transacciones de CAF...
     footer:
-      tech: 'Construido con el servidor MCP de OKFN y el plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre la publicacion oficial <a href="https://iatistandard.org/">IATI</a> de <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF</a> (ver las <a href="#" id="landing-footer-tools">fuentes de datos</a> abajo).'
+      tech: 'Construido con el servidor MCP de OKFN y el plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre la publicación oficial <a href="https://iatistandard.org/">IATI</a> de <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF</a> (ver las <a href="#" id="landing-footer-tools">fuentes de datos</a> abajo).'
 
 pt:
   nav:
     brand: Open Data AI Explorer
   landing:
     title: Pergunte aos dados IATI do CAF
-    tagline: 'Respostas construidas apenas com o arquivo oficial de atividades IATI publicado pelo <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF, Banco de Desenvolvimento da America Latina e Caribe</a>: suas atividades e transacoes de desenvolvimento, conforme declaradas sob o padrao IATI. Cada resposta vem de uma ferramenta sobre esse arquivo, nunca do conhecimento proprio do modelo.'
-    placeholder: Pergunte sobre atividades, paises, setores ou transacoes do CAF...
+    tagline: 'Respostas construídas apenas com o arquivo oficial de atividades IATI publicado pelo <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF, Banco de Desenvolvimento da América Latina e Caribe</a>: suas atividades e transações de desenvolvimento, conforme declaradas sob o padrão IATI. Cada resposta vem de uma ferramenta sobre esse arquivo, nunca do conhecimento próprio do modelo.'
+    placeholder: Pergunte sobre atividades, países, setores ou transações do CAF...
     footer:
-      tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre a publicacao oficial <a href="https://iatistandard.org/">IATI</a> do <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'
+      tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre a publicação oficial <a href="https://iatistandard.org/">IATI</a> do <a href="https://dashboard.iatistandard.org/publishers/caf/">CAF</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'

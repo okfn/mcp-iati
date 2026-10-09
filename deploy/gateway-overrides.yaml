@@ -29,8 +29,8 @@ es:
   nav:
     brand: Open Data AI Explorer
   landing:
-    title: Preguntale a los datos IATI
-    tagline: 'Respuestas construidas solo con datos oficiales de archivos publicos IATI: actividades y transacciones publicadas bajo el estandar IATI de cooperacion para el desarrollo. Cada respuesta sale de una herramienta sobre esos archivos, nunca del conocimiento propio del modelo.'
+    title: Pregúntale a los datos IATI
+    tagline: 'Respuestas construidas solo con datos oficiales de archivos públicos IATI: actividades y transacciones publicadas bajo el estándar IATI de cooperación para el desarrollo. Cada respuesta sale de una herramienta sobre esos archivos, nunca del conocimiento propio del modelo.'
     placeholder: Pregunta sobre actividades, organizaciones, sectores o transacciones IATI...
     footer:
       tech: 'Construido con el servidor MCP de OKFN y el plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicaciones oficiales <a href="https://iatistandard.org/">IATI</a> (ver las <a href="#" id="landing-footer-tools">fuentes de datos</a> abajo).'
@@ -40,7 +40,7 @@ pt:
     brand: Open Data AI Explorer
   landing:
     title: Pergunte aos dados IATI
-    tagline: 'Respostas construidas apenas com dados oficiais de arquivos publicos IATI: atividades e transacoes publicadas sob o padrao IATI de cooperacao para o desenvolvimento. Cada resposta vem de uma ferramenta sobre esses arquivos, nunca do conhecimento proprio do modelo.'
-    placeholder: Pergunte sobre atividades, organizacoes, setores ou transacoes IATI...
+    tagline: 'Respostas construídas apenas com dados oficiais de arquivos públicos IATI: atividades e transações publicadas sob o padrão IATI de cooperação para o desenvolvimento. Cada resposta vem de uma ferramenta sobre esses arquivos, nunca do conhecimento próprio do modelo.'
+    placeholder: Pergunte sobre atividades, organizações, setores ou transações IATI...
     footer:
-      tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicacoes oficiais <a href="https://iatistandard.org/">IATI</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'
+      tech: 'Desenvolvido com o servidor MCP da OKFN e o plugin <a href="https://github.com/okfn/mcp-iati">mcp-iati</a> sobre publicações oficiais <a href="https://iatistandard.org/">IATI</a> (veja as <a href="#" id="landing-footer-tools">fontes de dados</a> abaixo).'

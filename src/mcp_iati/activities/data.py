@@ -16,6 +16,7 @@ through its API, so publishers that rename their files on every release keep
 working), or set MCP_IATI_XML_PATH to use a local file with no download at
 all.
 """
+
 import hashlib
 import json
 import os
@@ -111,16 +112,115 @@ DATAFRAME_SPECS = {
         "numeric_columns": (),
         "optional": True,
     },
+    "budgets": {
+        "filename": "budgets.csv",
+        "required_columns": (
+            "activity_identifier",
+            "budget_type",
+            "budget_status",
+            "period_start",
+            "period_end",
+            "value",
+            "currency",
+            "value_date",
+        ),
+        "numeric_columns": ("value",),
+        "optional": True,
+    },
+    "locations": {
+        "filename": "locations.csv",
+        "required_columns": (
+            "activity_identifier",
+            "location_ref",
+            "name",
+            "description",
+            "latitude",
+            "longitude",
+            "administrative_country",
+        ),
+        "numeric_columns": ("latitude", "longitude"),
+        "optional": True,
+    },
+    "documents": {
+        "filename": "documents.csv",
+        "required_columns": (
+            "activity_identifier",
+            "url",
+            "format",
+            "title",
+            "description",
+            "category_code",
+            "language_code",
+            "document_date",
+        ),
+        "numeric_columns": (),
+        "optional": True,
+    },
+    "results": {
+        "filename": "results.csv",
+        "required_columns": ("activity_identifier", "result_ref", "result_type", "title", "description"),
+        "numeric_columns": (),
+        "optional": True,
+    },
+    "indicators": {
+        "filename": "indicators.csv",
+        "required_columns": (
+            "activity_identifier",
+            "result_ref",
+            "indicator_ref",
+            "indicator_measure",
+            "ascending",
+            "title",
+            "description",
+            "baseline_year",
+            "baseline_value",
+        ),
+        "numeric_columns": ("baseline_value",),
+        "optional": True,
+    },
+    "indicator_periods": {
+        "filename": "indicator_periods.csv",
+        "required_columns": (
+            "activity_identifier",
+            "result_ref",
+            "indicator_ref",
+            "period_start",
+            "period_end",
+            "target_value",
+            "actual_value",
+        ),
+        "numeric_columns": ("target_value", "actual_value"),
+        "optional": True,
+    },
+    "contact_info": {
+        "filename": "contact_info.csv",
+        "required_columns": (
+            "activity_identifier",
+            "contact_type",
+            "organisation",
+            "department",
+            "person_name",
+            "job_title",
+            "telephone",
+            "email",
+            "website",
+            "mailing_address",
+        ),
+        "numeric_columns": (),
+        "optional": True,
+    },
+    "conditions": {
+        "filename": "conditions.csv",
+        "required_columns": ("activity_identifier", "condition_type", "condition_text"),
+        "numeric_columns": (),
+        "optional": True,
+    },
 }
 
 
 TABLE_RELATIONSHIPS = {
-    "transactions.activity_identifier": (
-        "activities.activity_identifier"
-    ),
-    "sectors.activity_identifier": (
-        "activities.activity_identifier"
-    ),
+    "transactions.activity_identifier": ("activities.activity_identifier"),
+    "sectors.activity_identifier": ("activities.activity_identifier"),
 }
 
 
@@ -144,8 +244,7 @@ def _download_xml(url: str, filename: str) -> Path:
     except (urllib.error.URLError, OSError) as exc:
         if target.exists():
             warnings.warn(
-                f"Could not refresh IATI XML from {url}; using the stale "
-                f"cached copy at {target}: {exc}",
+                f"Could not refresh IATI XML from {url}; using the stale cached copy at {target}: {exc}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -177,9 +276,7 @@ def _download_xml(url: str, filename: str) -> Path:
 def _download_sample(name: str) -> Path:
     """Download a named IADB country file from the bank's IATI hosting."""
     if not name or Path(name).name != name or name in {".", ".."}:
-        raise ValueError(
-            "MCP_IATI_SAMPLE must be a filename without directory components."
-        )
+        raise ValueError("MCP_IATI_SAMPLE must be a filename without directory components.")
     url = f"{_SAMPLES_BASE_URL}/{name}"
     return _download_xml(url, name)
 
@@ -209,9 +306,7 @@ def _fetch_dataset_source_url(short_name: str) -> str:
         payload = json.load(resp)
     source_url = payload.get("source_url") if isinstance(payload, dict) else None
     if not source_url or urlparse(source_url).scheme not in {"http", "https"}:
-        raise ValueError(
-            f"Dashboard dataset {short_name!r} has no usable source_url: {payload!r}"
-        )
+        raise ValueError(f"Dashboard dataset {short_name!r} has no usable source_url: {payload!r}")
     return source_url
 
 
@@ -244,8 +339,7 @@ def dataset_source_url(short_name: str) -> str:
                 ) from exc
             url = target.read_text().strip()
             warnings.warn(
-                f"Could not refresh the XML URL of IATI dataset {short_name!r}; "
-                f"using the last resolved URL {url}: {exc}",
+                f"Could not refresh the XML URL of IATI dataset {short_name!r}; using the last resolved URL {url}: {exc}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -326,10 +420,7 @@ def _csv_cache_is_fresh(
     if source_path and not source_path.exists():
         return False
 
-    return (
-        source_path is None
-        or marker.stat().st_mtime >= source_path.stat().st_mtime
-    )
+    return source_path is None or marker.stat().st_mtime >= source_path.stat().st_mtime
 
 
 def _clear_expired_memory_cache() -> None:
@@ -383,10 +474,7 @@ def _csv_folder() -> Path:
     if "csv_folder" not in _cache:
         path = xml_path()
         if not path.exists():
-            raise FileNotFoundError(
-                f"IATI XML not found at {path}. "
-                "Set MCP_IATI_XML_PATH to a valid file."
-            )
+            raise FileNotFoundError(f"IATI XML not found at {path}. Set MCP_IATI_XML_PATH to a valid file.")
         csv_parent = get_settings().ensure_data_dir() / "csv"
         csv_parent.mkdir(parents=True, exist_ok=True)
         cache_key = _source_cache_key()
@@ -395,30 +483,18 @@ def _csv_folder() -> Path:
             _cache["csv_folder"] = cache_dir
             return cache_dir
 
-        tmp_dir = Path(
-            tempfile.mkdtemp(prefix=f"{cache_key}-", dir=csv_parent)
-        )
+        tmp_dir = Path(tempfile.mkdtemp(prefix=f"{cache_key}-", dir=csv_parent))
 
         try:
             converter = IatiMultiCsvConverter()
 
             if not converter.xml_to_csv_folder(path, tmp_dir):
-                raise RuntimeError(
-                    f"Failed to convert {path} to CSV: "
-                    f"{converter.latest_errors}"
-                )
+                raise RuntimeError(f"Failed to convert {path} to CSV: {converter.latest_errors}")
 
-            missing_files = [
-                filename
-                for filename in REQUIRED_TOOL_CSVS
-                if not (tmp_dir / filename).is_file()
-            ]
+            missing_files = [filename for filename in REQUIRED_TOOL_CSVS if not (tmp_dir / filename).is_file()]
             if missing_files:
                 missing = ", ".join(missing_files)
-                raise RuntimeError(
-                    "IATI conversion did not produce the required CSVs "
-                    f"for {path}: {missing}"
-                )
+                raise RuntimeError(f"IATI conversion did not produce the required CSVs for {path}: {missing}")
 
             (tmp_dir / ".complete").touch()
             _replace_csv_cache(tmp_dir, cache_dir)
@@ -437,10 +513,7 @@ def _csv_folder() -> Path:
                 _cache["stale_since"] = time.time()
                 return cache_dir
 
-            raise RuntimeError(
-                "Could not create IATI CSV cache from "
-                f"{xml_source()}: {error}"
-            ) from error
+            raise RuntimeError(f"Could not create IATI CSV cache from {xml_source()}: {error}") from error
 
         finally:
             if tmp_dir.exists():
@@ -459,28 +532,16 @@ def prepare_data() -> Path:
     try:
         folder = _csv_folder()
     except (FileNotFoundError, RuntimeError) as error:
-        raise RuntimeError(
-            f"Could not prepare IATI data from {source}: {error}"
-        ) from error
+        raise RuntimeError(f"Could not prepare IATI data from {source}: {error}") from error
 
-    missing_files = [
-        filename
-        for filename in REQUIRED_TOOL_CSVS
-        if not (folder / filename).exists()
-    ]
+    missing_files = [filename for filename in REQUIRED_TOOL_CSVS if not (folder / filename).exists()]
     if missing_files:
         missing = ", ".join(missing_files)
-        raise RuntimeError(
-            f"IATI data from {source} is missing required CSV files: "
-            f"{missing}"
-        )
+        raise RuntimeError(f"IATI data from {source} is missing required CSV files: {missing}")
 
     generated_csvs = sorted(path.name for path in folder.glob("*.csv"))
 
-    print(
-        f"IATI data prepared from {source}: "
-        f"{len(generated_csvs)} CSV files in {folder}"
-    )
+    print(f"IATI data prepared from {source}: {len(generated_csvs)} CSV files in {folder}")
 
     return folder
 
@@ -490,9 +551,7 @@ def _dataframe(table_name: str) -> pd.DataFrame:
     try:
         spec = DATAFRAME_SPECS[table_name]
     except KeyError as error:
-        raise ValueError(
-            f"Unknown IATI CSV table: {table_name}"
-        ) from error
+        raise ValueError(f"Unknown IATI CSV table: {table_name}") from error
 
     cache_key = f"dataframe:{table_name}"
     _clear_expired_memory_cache()
@@ -502,24 +561,15 @@ def _dataframe(table_name: str) -> pd.DataFrame:
 
     csv_path = _csv_folder() / spec["filename"]
     if spec.get("optional") and not csv_path.is_file():
-        dataframe = pd.DataFrame(
-            columns=list(spec["required_columns"])
-        )
+        dataframe = pd.DataFrame(columns=list(spec["required_columns"]))
         _cache[cache_key] = dataframe
         return dataframe
     dataframe = pd.read_csv(csv_path, dtype=str)
 
-    missing_columns = [
-        column
-        for column in spec["required_columns"]
-        if column not in dataframe.columns
-    ]
+    missing_columns = [column for column in spec["required_columns"] if column not in dataframe.columns]
     if missing_columns:
         missing = ", ".join(missing_columns)
-        raise RuntimeError(
-            f"{spec['filename']} is missing required columns: "
-            f"{missing}"
-        )
+        raise RuntimeError(f"{spec['filename']} is missing required columns: {missing}")
 
     for column in spec["numeric_columns"]:
         dataframe[column] = pd.to_numeric(
@@ -554,3 +604,35 @@ def participating_orgs_df() -> pd.DataFrame:
 def activity_dates_df() -> pd.DataFrame:
     """Return the shared activity dates DataFrame."""
     return _dataframe("activity_dates")
+
+
+def budgets_df() -> pd.DataFrame:
+    return _dataframe("budgets")
+
+
+def locations_df() -> pd.DataFrame:
+    return _dataframe("locations")
+
+
+def documents_df() -> pd.DataFrame:
+    return _dataframe("documents")
+
+
+def results_df() -> pd.DataFrame:
+    return _dataframe("results")
+
+
+def indicators_df() -> pd.DataFrame:
+    return _dataframe("indicators")
+
+
+def indicator_periods_df() -> pd.DataFrame:
+    return _dataframe("indicator_periods")
+
+
+def contact_info_df() -> pd.DataFrame:
+    return _dataframe("contact_info")
+
+
+def conditions_df() -> pd.DataFrame:
+    return _dataframe("conditions")

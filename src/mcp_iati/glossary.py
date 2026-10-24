@@ -15,8 +15,7 @@ IATI_GLOSSARY = {
         "it can represent a project, a programme or another unit of work."
     ),
     "IATI identifier": (
-        "Globally unique code identifying an IATI activity, also used to link it "
-        "to its transactions and other information."
+        "Globally unique code identifying an IATI activity, also used to link it to its transactions and other information."
     ),
     "activity status": (
         "Stage of an activity within its lifecycle: pipeline/identification, "
@@ -36,27 +35,20 @@ IATI_GLOSSARY = {
         "activity or parent programme, 2 or more for components reported as "
         "separate child activities."
     ),
-    "related activity": (
-        "Link from one activity to another, typed as parent, child, sibling, "
-        "co-funded or third party."
-    ),
+    "related activity": ("Link from one activity to another, typed as parent, child, sibling, co-funded or third party."),
     "activity scope": (
-        "Geographical ambit of an activity: global, regional, multi-national, "
-        "national or one of several sub-national levels."
+        "Geographical ambit of an activity: global, regional, multi-national, national or one of several sub-national levels."
     ),
     "humanitarian flag": (
-        "Marker declaring that an activity (or an individual transaction) relates "
-        "entirely or partially to humanitarian aid."
+        "Marker declaring that an activity (or an individual transaction) relates entirely or partially to humanitarian aid."
     ),
-
     # --- Organisations ----------------------------------------------------
     "reporting organisation": (
         "Organisation responsible for publishing and maintaining an activity's data; "
         "not necessarily the one funding or implementing the project."
     ),
     "participating organisation": (
-        "Organisation linked to an activity with a given role, such as funding, "
-        "accountability, extension or implementation."
+        "Organisation linked to an activity with a given role, such as funding, accountability, extension or implementation."
     ),
     "organisation role": (
         "Code describing the function of a participating organisation within "
@@ -67,24 +59,14 @@ IATI_GLOSSARY = {
         "other public sector, international/national/regional NGO, public-private "
         "partnership, multilateral, foundation, private sector or academic."
     ),
-    "provider organisation": (
-        "Organisation providing the funds associated with a transaction "
-        "or a planned disbursement."
-    ),
-    "receiver organisation": (
-        "Organisation receiving the funds associated with a transaction "
-        "or a planned disbursement."
-    ),
+    "provider organisation": ("Organisation providing the funds associated with a transaction or a planned disbursement."),
+    "receiver organisation": ("Organisation receiving the funds associated with a transaction or a planned disbursement."),
     "contact information": (
         "Contact details published for an activity, typed as general enquiries, "
         "project management, financial management or communications."
     ),
-
     # --- Financial data ---------------------------------------------------
-    "transaction": (
-        "Financial operation associated with an IATI activity, identified by "
-        "its type, date, value and currency."
-    ),
+    "transaction": ("Financial operation associated with an IATI activity, identified by its type, date, value and currency."),
     "transaction type": (
         "Code indicating the nature of a financial operation: incoming funds, "
         "commitment, disbursement, expenditure, interest payment, loan repayment, "
@@ -99,14 +81,8 @@ IATI_GLOSSARY = {
         "Financial obligation undertaken to provide funds to an activity; "
         "it does not necessarily represent a payment already made."
     ),
-    "disbursement": (
-        "Transfer of funds from a provider organisation to a receiver "
-        "organisation to finance an activity."
-    ),
-    "expenditure": (
-        "Use of funds to purchase goods or services related to an activity; "
-        "not a synonym of disbursement."
-    ),
+    "disbursement": ("Transfer of funds from a provider organisation to a receiver organisation to finance an activity."),
+    "expenditure": ("Use of funds to purchase goods or services related to an activity; not a synonym of disbursement."),
     "budget": (
         "Amount planned for an activity over a given period, with a status "
         "(indicative or committed) and a type (original or revised); it does not "
@@ -117,14 +93,12 @@ IATI_GLOSSARY = {
         "from a disbursement transaction that already took place."
     ),
     "default currency": (
-        "Currency declared for an activity and used whenever a financial value "
-        "does not explicitly specify another currency."
+        "Currency declared for an activity and used whenever a financial value does not explicitly specify another currency."
     ),
     "country budget item": (
         "Mapping of an activity to the recipient country's own budget "
         "classification, so aid can be aligned with national budgets."
     ),
-
     # --- Aid classifications ----------------------------------------------
     "aid type": (
         "Modality of the aid, such as budget support, pooled funds, project-type "
@@ -142,8 +116,7 @@ IATI_GLOSSARY = {
         "foreign direct investment or other private flows."
     ),
     "tied status": (
-        "Whether the aid's procurement is restricted to suppliers from specific "
-        "countries: tied, partially tied or untied."
+        "Whether the aid's procurement is restricted to suppliers from specific countries: tied, partially tied or untied."
     ),
     "collaboration type": (
         "Institutional channel of the activity: bilateral, multilateral (inflows), "
@@ -162,7 +135,6 @@ IATI_GLOSSARY = {
         "marker carries a significance from 'not targeted' through 'significant "
         "objective' to 'principal objective'."
     ),
-
     # --- Sectors and geography --------------------------------------------
     "sector": (
         "Thematic or economic area an activity contributes to, indicated by "
@@ -180,7 +152,6 @@ IATI_GLOSSARY = {
         "to country level) and a reach (where the activity is carried out vs "
         "where the beneficiaries live)."
     ),
-
     # --- Results and monitoring -------------------------------------------
     "result": (
         "Intended or achieved change reported for an activity, typed as output, "
@@ -192,10 +163,8 @@ IATI_GLOSSARY = {
         "periods with target and actual values."
     ),
     "indicator period": (
-        "Reporting window of an indicator, with the target value expected for "
-        "the period and the actual value achieved."
+        "Reporting window of an indicator, with the target value expected for the period and the actual value achieved."
     ),
-
     # --- Documentation and cross-cutting ----------------------------------
     "document link": (
         "URL of a document related to the activity, categorised for example as "
@@ -212,13 +181,8 @@ IATI_GLOSSARY = {
         "DAC CRS for sectors and policy markers, UN COFOG, the SDG goals and "
         "targets, or the IASC humanitarian clusters."
     ),
-    "codelist": (
-        "Catalogue mapping the codes used in IATI to their allowed meanings."
-    ),
-    "narrative": (
-        "Human-readable text attached to an IATI element, which may be "
-        "published in one or more languages."
-    ),
+    "codelist": ("Catalogue mapping the codes used in IATI to their allowed meanings."),
+    "narrative": ("Human-readable text attached to an IATI element, which may be published in one or more languages."),
 }
 
 
@@ -394,6 +358,89 @@ TOOL_GLOSSARY_TERMS = {
         "participating organisation",
         "activity status",
     ),
+    "totals_by_year": (
+        "transaction",
+        "transaction type",
+        "commitment",
+        "disbursement",
+        "expenditure",
+        "default currency",
+    ),
+    "top_funders": (
+        "provider organisation",
+        "transaction",
+        "transaction value",
+        "organisation type",
+    ),
+    "top_receivers": (
+        "receiver organisation",
+        "transaction",
+        "transaction value",
+        "organisation type",
+    ),
+    "top_activities": (
+        "IATI activity",
+        "IATI identifier",
+        "commitment",
+        "disbursement",
+        "budget",
+        "activity status",
+    ),
+    "execution_gap": (
+        "IATI activity",
+        "commitment",
+        "disbursement",
+        "transaction value",
+    ),
+    "budget_vs_spend": ("budget", "expenditure", "default currency"),
+    "funding_breakdown": (
+        "finance type",
+        "flow type",
+        "aid type",
+        "tied status",
+        "collaboration type",
+        "disbursement channel",
+        "transaction",
+    ),
+    "funding_by_country": (
+        "recipient country or region",
+        "transaction",
+        "commitment",
+    ),
+    "funding_by_sector": (
+        "sector",
+        "vocabulary",
+        "transaction",
+        "commitment",
+    ),
+    "humanitarian_split": (
+        "humanitarian flag",
+        "transaction",
+        "transaction type",
+    ),
+    "activity_full_record": (
+        "IATI activity",
+        "IATI identifier",
+        "participating organisation",
+        "sector",
+        "transaction",
+        "budget",
+        "location",
+        "result",
+        "document link",
+        "contact information",
+        "condition",
+    ),
+    "activities_by_organisation": (
+        "participating organisation",
+        "organisation role",
+        "organisation type",
+        "IATI activity",
+        "transaction value",
+    ),
+    "activity_results": ("result", "indicator", "indicator period"),
+    "activity_documents": ("document link", "IATI identifier"),
+    "activity_contacts": ("contact information", "IATI identifier"),
 }
 
 
@@ -422,11 +469,7 @@ def search_terms(query: str) -> list[tuple[str, str]]:
         lambda variant, term, definition: variant in definition.lower(),
     ):
         for variant in variants:
-            found = [
-                (term, definition)
-                for term, definition in IATI_GLOSSARY.items()
-                if match(variant, term, definition)
-            ]
+            found = [(term, definition) for term, definition in IATI_GLOSSARY.items() if match(variant, term, definition)]
             if found:
                 return found
     return []
@@ -436,14 +479,9 @@ def glossary_text(*terms: str) -> str:
     """Return selected glossary entries as a compact, human-readable string."""
     unknown_terms = [term for term in terms if term not in IATI_GLOSSARY]
     if unknown_terms:
-        raise KeyError(
-            f"Unknown IATI terms: {', '.join(unknown_terms)}"
-        )
+        raise KeyError(f"Unknown IATI terms: {', '.join(unknown_terms)}")
 
-    return "\n".join(
-        f"- {_capitalize(term)}: {IATI_GLOSSARY[term]}"
-        for term in terms
-    )
+    return "\n".join(f"- {_capitalize(term)}: {IATI_GLOSSARY[term]}" for term in terms)
 
 
 def full_glossary_text() -> str:

@@ -3,6 +3,7 @@
 Answers terminology questions from the central glossary instead of the
 loaded XML, so the source points at the IATI standard itself.
 """
+
 from mcp_iati import helpers as h
 from mcp_iati.glossary import IATI_GLOSSARY, search_terms
 

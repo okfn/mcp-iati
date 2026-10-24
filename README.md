@@ -87,6 +87,22 @@ aggregation tools above are resolved exactly like in `filter_activities`
 (ISO code or name in several languages, sector code or name, organisation
 reference or name, status code or label), and an unresolved value returns
 the same "available values" message instead of an empty total.
+
+Higher-level investigative tools cover the remaining financial and
+accountability questions:
+
+- `totals_by_year`, `top_funders`, `top_receivers`, `top_activities`,
+  `execution_gap` and `budget_vs_spend` follow commitments, disbursements,
+  expenditure and budgets without mixing currencies.
+- `funding_breakdown` groups transaction amounts by finance type, flow type,
+  aid type, tied status, collaboration type or disbursement channel and shows
+  both the published code and its IATI label.
+- `funding_by_country`, `funding_by_sector` and `humanitarian_split` allocate
+  amounts across geography, sectors and the humanitarian flag.
+- `activity_full_record`, `activities_by_organisation`, `activity_results`,
+  `activity_documents` and `activity_contacts` expose record-level evidence.
+  Document and contact codelists are returned with human-readable labels.
+
 - `define_term(term)`: explain an IATI term using the central glossary.
 
 **Guiding principle:** these tools only use generic IATI standard fields

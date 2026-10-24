@@ -44,7 +44,10 @@ COUNTRY_ALIASES: dict[str, tuple[str, ...]] = {
     "EC": ("Ecuador", "Equador", "Equateur"),
     "SV": ("El Salvador", "Salvador"),
     "GT": ("Guatemala",),
-    "GY": ("Guyana", "Guiana",),
+    "GY": (
+        "Guyana",
+        "Guiana",
+    ),
     "HT": ("Haiti", "Haití", "Haïti"),
     "HN": ("Honduras",),
     "JM": ("Jamaica", "Jamaïque"),
@@ -87,17 +90,11 @@ COUNTRY_ALIASES: dict[str, tuple[str, ...]] = {
 
 def _fold(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", str(value))
-    return "".join(
-        char for char in normalized if not unicodedata.combining(char)
-    ).casefold().strip()
+    return "".join(char for char in normalized if not unicodedata.combining(char)).casefold().strip()
 
 
 # folded alias -> code, built once at import time.
-_ALIAS_TO_CODE: dict[str, str] = {
-    _fold(name): code
-    for code, names in COUNTRY_ALIASES.items()
-    for name in names
-}
+_ALIAS_TO_CODE: dict[str, str] = {_fold(name): code for code, names in COUNTRY_ALIASES.items() for name in names}
 
 
 def country_code_for_name(name: str) -> str | None:

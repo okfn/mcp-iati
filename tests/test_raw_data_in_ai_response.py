@@ -13,7 +13,7 @@ import pytest
 
 from mcp_iati import helpers as h
 from mcp_iati import terms
-from mcp_iati.activities import queries
+from mcp_iati.activities import advanced, queries
 from mcp_iati.glossary import (
     IATI_STANDARD_URL,
     TOOL_GLOSSARY_TERMS,
@@ -26,6 +26,7 @@ def _text(res):
 
 
 # --- Unit: the text_result builder embeds the raw table -------------------
+
 
 def test_text_result_embeds_full_table_verbatim():
     table = [
@@ -136,22 +137,22 @@ DATA_TOOLS = [
         terms.define_term,
         {"term": "organisation"},
     ),
-        (
+    (
         "list_recipient_countries",
         queries.list_recipient_countries,
         {},
     ),
-        (
+    (
         "filter_activities_by_country",
         queries.filter_activities_by_country,
         {"country": "AR"},
     ),
-        (
+    (
         "list_sectors",
         queries.list_sectors,
         {},
     ),
-        (
+    (
         "activity_transactions",
         queries.activity_transactions,
         {"iati_identifier": "IATI-001"},
@@ -181,6 +182,19 @@ DATA_TOOLS = [
         queries.top_activities_by_amount,
         {"transaction_type": "commitment"},
     ),
+    ("totals_by_year", advanced.totals_by_year, {}),
+    ("top_activities", advanced.top_activities, {}),
+    ("execution_gap", advanced.execution_gap, {}),
+    (
+        "funding_by_sector",
+        advanced.funding_by_sector,
+        {"vocabulary": "99"},
+    ),
+    (
+        "activities_by_organisation",
+        advanced.activities_by_organisation,
+        {"org": "Ministry"},
+    ),
 ]
 
 
@@ -196,23 +210,13 @@ def test_tool_embeds_full_table_in_ai_text(seed_cache, name, fn, kwargs):
 
     # 2. That SAME complete table is embedded in the text the AI receives.
     assert "=== Full data" in txt, f"{name}: data block missing"
-    assert _table_to_text(sc["table"]) in txt, (
-        f"{name}: the user-facing table is not verbatim in the AI text"
-    )
+    assert _table_to_text(sc["table"]) in txt, f"{name}: the user-facing table is not verbatim in the AI text"
 
 
 @pytest.mark.parametrize(
     "name,fn,kwargs",
-    [
-        item
-        for item in DATA_TOOLS
-        if item[0] != "define_term"
-    ],
-    ids=[
-        item[0]
-        for item in DATA_TOOLS
-        if item[0] != "define_term"
-    ],
+    [item for item in DATA_TOOLS if item[0] != "define_term"],
+    ids=[item[0] for item in DATA_TOOLS if item[0] != "define_term"],
 )
 def test_data_tools_include_only_relevant_glossary_terms(
     seed_cache,
@@ -231,12 +235,7 @@ def test_data_tools_include_only_relevant_glossary_terms(
         label = f"{term[0].upper()}{term[1:]}:"
         assert label in text, f"{name}: missing definition for {term}"
 
-    unrelated_terms = (
-        set(TOOL_GLOSSARY_TERMS["top_activities_by_amount"])
-        - set(expected_terms)
-    )
+    unrelated_terms = set(TOOL_GLOSSARY_TERMS["top_activities_by_amount"]) - set(expected_terms)
     for term in unrelated_terms:
         label = f"{term[0].upper()}{term[1:]}:"
-        assert label not in text, (
-            f"{name}: included unrelated definition for {term}"
-        )
+        assert label not in text, f"{name}: included unrelated definition for {term}"

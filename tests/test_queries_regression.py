@@ -2,13 +2,16 @@
 Regression tests for the queries over synthetic data (see `seed_cache` in
 conftest.py: preloaded cache, no network).
 """
+
 import pandas as pd
 import pytest
 from mcp_iati.activities import queries, data
 from mcp_iati.glossary import IATI_STANDARD_URL
 
+
 def _text(result):
     return result.content[0].text
+
 
 def _assert_data_and_glossary_sources(result, data_source):
     assert result.structuredContent["sources"] == [
@@ -28,9 +31,7 @@ def test_search_activities_preserves_table_and_source(seed_cache):
     text = _text(result)
 
     assert text.startswith(
-        "Found 1 IATI activity(ies) matching 'transport' "
-        "in their title, description, sectors or participating "
-        "organisations."
+        "Found 1 IATI activity(ies) matching 'transport' in their title, description, sectors or participating organisations."
     )
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
@@ -43,8 +44,7 @@ def test_search_activities_preserves_table_and_source(seed_cache):
             "IATI-001",
             "Sustainable transport programme",
             "Implementation",
-            "title, sector (Transport), "
-            "participating org (Ministry of Transport)",
+            "title, sector (Transport), participating org (Ministry of Transport)",
         ],
     ]
     _assert_data_and_glossary_sources(
@@ -94,9 +94,7 @@ def test_search_activities_matches_sector_name(seed_cache):
 
 
 def test_search_activities_works_without_description_column(seed_cache):
-    data._cache["dataframe:activities"] = (
-        seed_cache.activities.drop(columns=["description"])
-    )
+    data._cache["dataframe:activities"] = seed_cache.activities.drop(columns=["description"])
 
     result = queries.search_activities("rural")
     assert _text(result).startswith("No IATI activities found")
@@ -174,9 +172,7 @@ def test_list_participating_organisations_empty_data(seed_cache):
 
     result = queries.list_participating_organisations()
 
-    assert _text(result).startswith(
-        "No participating organisations were found"
-    )
+    assert _text(result).startswith("No participating organisations were found")
     assert "table" not in result.structuredContent
 
 
@@ -184,10 +180,7 @@ def test_filter_activities_by_participating_org_matches_ref(seed_cache):
     result = queries.filter_activities_by_participating_org("org-010")
     text = _text(result)
 
-    assert text.startswith(
-        "Found 1 IATI activity(ies) with participating organisation "
-        "'org-010'."
-    )
+    assert text.startswith("Found 1 IATI activity(ies) with participating organisation 'org-010'.")
     assert "Applied filters: participating_org=org-010" in text
     assert result.structuredContent["table"] == [
         [
@@ -245,9 +238,7 @@ def test_filter_activities_by_participating_org_ignores_accents(
         ]
     )
 
-    result = queries.filter_activities_by_participating_org(
-        "Estado do Espírito Santo"
-    )
+    result = queries.filter_activities_by_participating_org("Estado do Espírito Santo")
     text = _text(result)
 
     assert "IATI-001" in text
@@ -271,9 +262,7 @@ def test_filter_activities_by_participating_org_matches_similar_name(
         ]
     )
 
-    result = queries.filter_activities_by_participating_org(
-        "ESTADO DO ESPÍRITO SANTO"
-    )
+    result = queries.filter_activities_by_participating_org("ESTADO DO ESPÍRITO SANTO")
     text = _text(result)
 
     assert "IATI-001" in text
@@ -325,9 +314,7 @@ def test_filter_activities_by_participating_org_rejects_empty(
 ):
     result = queries.filter_activities_by_participating_org("  ")
 
-    assert _text(result) == (
-        "A participating organisation reference or name is required."
-    )
+    assert _text(result) == ("A participating organisation reference or name is required.")
     assert "table" not in result.structuredContent
 
 
@@ -335,9 +322,7 @@ def test_filter_activities_by_sector_matches_exact_code(seed_cache):
     result = queries.filter_activities_by_sector("12220")
     text = _text(result)
 
-    assert text.startswith(
-        "Found 1 IATI activity(ies) for sector '12220'."
-    )
+    assert text.startswith("Found 1 IATI activity(ies) for sector '12220'.")
     assert "Applied filters: sector=12220" in text
     assert result.structuredContent["table"] == [
         ["IATI identifier", "Title", "Status", "Sector"],
@@ -422,10 +407,7 @@ def test_filter_activities_by_sector_fills_missing_dac_names(seed_cache):
     ]
 
     listed = queries.list_sectors()
-    assert (
-        "Tourism policy and administrative management"
-        in _text(listed)
-    )
+    assert "Tourism policy and administrative management" in _text(listed)
 
     searched = queries.search_activities("tourism")
     assert "sector (Tourism policy" in _text(searched)
@@ -434,9 +416,7 @@ def test_filter_activities_by_sector_fills_missing_dac_names(seed_cache):
 def test_search_activities_rejects_invalid_limit(seed_cache):
     result = queries.search_activities("transport", limit=0)
 
-    assert _text(result) == (
-        "The result limit must be greater than zero."
-    )
+    assert _text(result) == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -448,8 +428,7 @@ def test_search_activities_preserves_empty_response(seed_cache):
     result = queries.search_activities("nonexistent")
 
     assert _text(result).startswith(
-        "No IATI activities found with 'nonexistent' in their "
-        "title, description, sectors or participating organisations."
+        "No IATI activities found with 'nonexistent' in their title, description, sectors or participating organisations."
     )
     assert "=== Relevant IATI terms ===" not in _text(result)
     assert "table" not in result.structuredContent
@@ -482,10 +461,7 @@ def test_activity_summary_preserves_details_totals_and_currency(seed_cache):
     assert "=== Query details ===" in text
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: iati_identifier=IATI-001"
-        in text
-    )
+    assert "Applied filters: iati_identifier=IATI-001" in text
     assert "Applied limit:" not in text
 
 
@@ -493,26 +469,15 @@ def test_activity_summary_includes_extended_details(seed_cache):
     result = queries.activity_summary("IATI-001")
     text = _text(result)
 
-    assert (
-        "Description: Bus corridors and road safety works" in text
-    )
+    assert "Description: Bus corridors and road safety works" in text
     assert "Recipient country: Argentina" in text
     assert "Sectors: Transport (TR), 100%" in text
     assert "Participating organisations:" in text
-    assert (
-        "Ministry of Transport (role: Implementing, type: Government)"
-        in text
-    )
-    assert (
-        "Development Bank (role: Funding, type: Multilateral)"
-        in text
-    )
+    assert "Ministry of Transport (role: Implementing, type: Government)" in text
+    assert "Development Bank (role: Funding, type: Multilateral)" in text
     # Dates come from the activity-date elements (the synthetic
     # activities have no date columns), in codelist order.
-    assert (
-        "Dates: planned start: 2024-01-01; actual start: 2024-01-15"
-        in text
-    )
+    assert "Dates: planned start: 2024-01-01; actual start: 2024-01-15" in text
 
 
 def test_activity_summary_omits_empty_detail_sections(seed_cache):
@@ -553,18 +518,13 @@ def test_activity_summary_falls_back_to_org_ref(seed_cache):
 
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: iati_identifier=IATI-002"
-        in text
-    )
+    assert "Applied filters: iati_identifier=IATI-002" in text
 
 
 def test_activity_summary_preserves_not_found_response(seed_cache):
     result = queries.activity_summary("UNKNOWN")
 
-    assert _text(result) == (
-        "No IATI activity found with identifier 'UNKNOWN'."
-    )
+    assert _text(result) == ("No IATI activity found with identifier 'UNKNOWN'.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -574,9 +534,9 @@ def test_activity_summary_preserves_not_found_response(seed_cache):
 
 
 def test_tools_use_preloaded_dataframes_without_preparing_data(
-        seed_cache,
-        monkeypatch,
-    ):
+    seed_cache,
+    monkeypatch,
+):
     """
     This test confirms that:
         - the tools use preloaded DataFrames;
@@ -585,10 +545,9 @@ def test_tools_use_preloaded_dataframes_without_preparing_data(
         - they don't execute okfn-iati;
         - search and summary continue to work.
     """
+
     def unexpected_preparation():
-        raise AssertionError(
-            "The tool attempted to read or prepare data again"
-        )
+        raise AssertionError("The tool attempted to read or prepare data again")
 
     monkeypatch.setattr(
         data,
@@ -682,6 +641,7 @@ def test_list_recipient_countries_returns_counts_and_source(
     assert "BR | Brazil | 1" in text
     assert "nan" not in text.lower()
 
+
 @pytest.mark.parametrize(
     "country",
     ["AR", "Argentina", "argentina"],
@@ -717,10 +677,7 @@ def test_filter_activities_by_country_accepts_code_and_name(
     assert "Found 1 IATI activity(ies)" in text
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        f"Applied filters: recipient_country={country}"
-        in text
-    )
+    assert f"Applied filters: recipient_country={country}" in text
     assert "Applied limit: 10" in text
 
 
@@ -729,9 +686,7 @@ def test_filter_activities_by_country_rejects_blank_country(
 ):
     result = queries.filter_activities_by_country("   ")
 
-    assert _text(result) == (
-        "A recipient country code or name is required."
-    )
+    assert _text(result) == ("A recipient country code or name is required.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(
@@ -745,9 +700,7 @@ def test_filter_activities_by_country_rejects_invalid_limit(
 ):
     result = queries.filter_activities_by_country("AR", limit=0)
 
-    assert _text(result) == (
-        "The result limit must be greater than zero."
-    )
+    assert _text(result) == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(
@@ -762,8 +715,7 @@ def test_filter_activities_by_country_returns_clear_empty_result(
     result = queries.filter_activities_by_country("UY")
 
     assert result.content[0].text == (
-        "No recipient country matches 'UY'. Available recipient "
-        "countries: AR (Argentina); BR (Brazil)"
+        "No recipient country matches 'UY'. Available recipient countries: AR (Argentina); BR (Brazil)"
     )
     assert "table" not in result.structuredContent
     _assert_data_source_only(
@@ -810,80 +762,82 @@ def test_transaction_totals_by_year_groups_by_year_type_and_currency(
     seed_cache,
     monkeypatch,
 ):
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "2023-01-01",
-            "value": 500.0,
-            "currency": "USD",
-            "description": "First",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "2024-02-01",
-            "value": 1500.0,
-            "currency": "USD",
-            "description": "Second",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "transaction_date": "2024-03-01",
-            "value": 750.0,
-            "currency": "USD",
-            "description": "Third",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "2024-04-01",
-            "value": 200.0,
-            "currency": "EUR",
-            "description": "Fourth",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "transaction_date": "2024-05-01",
-            "value": 100.0,
-            "currency": "EUR",
-            "description": "Fifth",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "bad-date",
-            "value": 123.0,
-            "currency": "USD",
-            "description": "Ignored",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "2024-06-01",
-            "value": "not-a-number",
-            "currency": "USD",
-            "description": "Ignored",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "transaction_date": "2024-06-02",
-            "value": 50.0,
-            "currency": "",
-            "description": "Falls back to default currency",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "4",
-            "transaction_date": "2024-06-03",
-            "value": 999.0,
-            "currency": "USD",
-            "description": "Ignored type",
-        },
-    ])
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "2023-01-01",
+                "value": 500.0,
+                "currency": "USD",
+                "description": "First",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "2024-02-01",
+                "value": 1500.0,
+                "currency": "USD",
+                "description": "Second",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "transaction_date": "2024-03-01",
+                "value": 750.0,
+                "currency": "USD",
+                "description": "Third",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "2024-04-01",
+                "value": 200.0,
+                "currency": "EUR",
+                "description": "Fourth",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "transaction_date": "2024-05-01",
+                "value": 100.0,
+                "currency": "EUR",
+                "description": "Fifth",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "bad-date",
+                "value": 123.0,
+                "currency": "USD",
+                "description": "Ignored",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "2024-06-01",
+                "value": "not-a-number",
+                "currency": "USD",
+                "description": "Ignored",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "transaction_date": "2024-06-02",
+                "value": 50.0,
+                "currency": "",
+                "description": "Falls back to default currency",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "4",
+                "transaction_date": "2024-06-03",
+                "value": 999.0,
+                "currency": "USD",
+                "description": "Ignored type",
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_year()
 
@@ -923,19 +877,14 @@ def test_transaction_totals_by_year_applies_year_filters(seed_cache):
 
     assert "Total results: 2" in text
     assert "Records shown: 2" in text
-    assert (
-        "Applied filters: year_from=2023, year_to=2024"
-        in text
-    )
+    assert "Applied filters: year_from=2023, year_to=2024" in text
     assert "Applied limit:" not in text
 
 
 def test_transaction_totals_by_year_rejects_invalid_range(seed_cache):
     result = queries.transaction_totals_by_year(year_from=2025, year_to=2024)
 
-    assert result.content[0].text == (
-        "The year_from value cannot be greater than year_to."
-    )
+    assert result.content[0].text == ("The year_from value cannot be greater than year_to.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -955,6 +904,8 @@ def test_activity_transactions_returns_chronological_rows_and_source(
             "Transaction type",
             "Value",
             "Currency",
+            "Provider organisation",
+            "Receiver organisation",
             "Description",
         ],
         [
@@ -962,6 +913,8 @@ def test_activity_transactions_returns_chronological_rows_and_source(
             "Out Commitment",
             "1,000.00",
             "USD",
+            "",
+            "",
             "Initial commitment",
         ],
         [
@@ -969,6 +922,8 @@ def test_activity_transactions_returns_chronological_rows_and_source(
             "Out Commitment",
             "500.00",
             "USD",
+            "",
+            "",
             "Additional commitment",
         ],
         [
@@ -976,6 +931,8 @@ def test_activity_transactions_returns_chronological_rows_and_source(
             "Disbursement",
             "750.00",
             "USD",
+            "",
+            "",
             "First disbursement",
         ],
     ]
@@ -988,10 +945,7 @@ def test_activity_transactions_returns_chronological_rows_and_source(
     assert "Found 3 transaction(s)" in text
     assert "Total results: 3" in text
     assert "Records shown: 3" in text
-    assert (
-        "Applied filters: iati_identifier=IATI-001"
-        in text
-    )
+    assert "Applied filters: iati_identifier=IATI-001" in text
     assert "Applied limit: 50" in text
 
 
@@ -1007,10 +961,7 @@ def test_activity_transactions_reports_truncated_results(
     assert "Found 3 transaction(s)" in text
     assert "Total results: 3" in text
     assert "Records shown: 2" in text
-    assert (
-        "Applied filters: iati_identifier=IATI-001"
-        in text
-    )
+    assert "Applied filters: iati_identifier=IATI-001" in text
     assert "Applied limit: 2" in text
     assert len(result.structuredContent["table"]) == 3
 
@@ -1020,9 +971,7 @@ def test_activity_transactions_rejects_blank_identifier(
 ):
     result = queries.activity_transactions("   ")
 
-    assert _text(result) == (
-        "An IATI activity identifier is required."
-    )
+    assert _text(result) == ("An IATI activity identifier is required.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(
@@ -1039,9 +988,7 @@ def test_activity_transactions_rejects_invalid_limit(
         limit=0,
     )
 
-    assert _text(result) == (
-        "The result limit must be greater than zero."
-    )
+    assert _text(result) == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(
@@ -1053,9 +1000,7 @@ def test_activity_transactions_rejects_invalid_limit(
 def test_activity_transactions_rejects_unknown_activity(seed_cache):
     result = queries.activity_transactions("UNKNOWN")
 
-    assert result.content[0].text == (
-        "No IATI activity found with identifier 'UNKNOWN'."
-    )
+    assert result.content[0].text == ("No IATI activity found with identifier 'UNKNOWN'.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1068,76 +1013,80 @@ def test_transaction_totals_by_organisation_groups_by_org_type_and_currency(
     seed_cache,
     monkeypatch,
 ):
-    activities = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "reporting_org_name": "Development Bank",
-            "reporting_org_ref": "ORG-001",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "reporting_org_name": "",
-            "reporting_org_ref": "ORG-002",
-            "default_currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "reporting_org_name": "",
-            "reporting_org_ref": "",
-            "default_currency": "USD",
-        },
-    ])
-    transactions = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1500.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 100.0,
-            "currency": "",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 200.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "value": 750.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "transaction_type": "2",
-            "value": 500.0,
-            "currency": "",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "4",
-            "value": 999.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": "not-a-number",
-            "currency": "USD",
-        },
-    ])
+    activities = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "reporting_org_name": "Development Bank",
+                "reporting_org_ref": "ORG-001",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "reporting_org_name": "",
+                "reporting_org_ref": "ORG-002",
+                "default_currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "reporting_org_name": "",
+                "reporting_org_ref": "",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    transactions = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1500.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 100.0,
+                "currency": "",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 200.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "value": 750.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "transaction_type": "2",
+                "value": 500.0,
+                "currency": "",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "4",
+                "value": 999.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": "not-a-number",
+                "currency": "USD",
+            },
+        ]
+    )
     data._cache["dataframe:activities"] = activities
     data._cache["dataframe:transactions"] = transactions
 
@@ -1185,11 +1134,7 @@ def test_transaction_totals_by_organisation_reports_applied_limit(
     assert "Applied limit: 1" in text
     assert len(result.structuredContent["table"]) == 2
 
-    total_line = next(
-        line
-        for line in text.splitlines()
-        if line.startswith("Total results:")
-    )
+    total_line = next(line for line in text.splitlines() if line.startswith("Total results:"))
     total = int(total_line.removeprefix("Total results:").strip())
 
     assert total >= 1
@@ -1198,9 +1143,7 @@ def test_transaction_totals_by_organisation_reports_applied_limit(
 def test_transaction_totals_by_organisation_rejects_invalid_limit(seed_cache):
     result = queries.transaction_totals_by_organisation(limit=0)
 
-    assert result.content[0].text == (
-        "The result limit must be greater than zero."
-    )
+    assert result.content[0].text == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1210,51 +1153,59 @@ def test_transaction_totals_by_organisation_rejects_invalid_limit(seed_cache):
 
 
 def test_sector_allocations_over_100_become_unallocated():
-    sectors = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "111",
-            "sector_name": "Transport",
-            "vocabulary": "1",
-            "percentage": 70,
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "112",
-            "sector_name": "Health",
-            "vocabulary": "1",
-            "percentage": 50,
-        },
-    ])
+    sectors = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "111",
+                "sector_name": "Transport",
+                "vocabulary": "1",
+                "percentage": 70,
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "112",
+                "sector_name": "Health",
+                "vocabulary": "1",
+                "percentage": 50,
+            },
+        ]
+    )
 
     allocations = queries._sector_allocations(sectors)
 
-    assert allocations.to_dict("records") == [{
-        "activity_identifier": "IATI-001",
-        "vocabulary": "1",
-        "sector_code": "",
-        "sector_name": "Unallocated sector",
-        "allocation_percentage": 100.0,
-    }]
+    assert allocations.to_dict("records") == [
+        {
+            "activity_identifier": "IATI-001",
+            "vocabulary": "1",
+            "sector_code": "",
+            "sector_name": "Unallocated sector",
+            "allocation_percentage": 100.0,
+        }
+    ]
 
 
 def test_transaction_totals_by_sector_keeps_activities_without_sectors(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+        ]
+    )
     data._cache["dataframe:sectors"] = pd.DataFrame(
         columns=[
             "activity_identifier",
@@ -1281,36 +1232,42 @@ def test_transaction_totals_by_sector_keeps_activities_without_sectors(
 def test_transaction_totals_by_sector_allocates_percentages_and_unallocated_share(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-    ])
-    data._cache["dataframe:sectors"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "111",
-            "sector_name": "Transport",
-            "vocabulary": "1",
-            "percentage": 60,
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "112",
-            "sector_name": "Health",
-            "vocabulary": "1",
-            "percentage": 30,
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:sectors"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "111",
+                "sector_name": "Transport",
+                "vocabulary": "1",
+                "percentage": 60,
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "112",
+                "sector_name": "Health",
+                "vocabulary": "1",
+                "percentage": 30,
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_sector(transaction_type="commitment")
     table = result.structuredContent["table"]
@@ -1338,32 +1295,39 @@ def test_transaction_totals_by_sector_allocates_percentages_and_unallocated_shar
     assert "Applied limit: 2" in limited_text
     assert len(limited_result.structuredContent["table"]) == 3
 
+
 def test_transaction_totals_by_sector_treats_single_unpercentaged_sector_as_100(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-    ])
-    data._cache["dataframe:sectors"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "111",
-            "sector_name": "Transport",
-            "vocabulary": "1",
-            "percentage": None,
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:sectors"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "111",
+                "sector_name": "Transport",
+                "vocabulary": "1",
+                "percentage": None,
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_sector(transaction_type="commitment")
 
@@ -1374,52 +1338,58 @@ def test_transaction_totals_by_sector_treats_single_unpercentaged_sector_as_100(
 def test_transaction_totals_by_sector_separates_vocabularies_and_currencies(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 500.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "value": 250.0,
-            "currency": "USD",
-        },
-    ])
-    data._cache["dataframe:sectors"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "sector_code": "111",
-            "sector_name": "Transport",
-            "vocabulary": "1",
-            "percentage": 100,
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "sector_code": "112",
-            "sector_name": "Health",
-            "vocabulary": "2",
-            "percentage": 100,
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 500.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "value": 250.0,
+                "currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:sectors"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "sector_code": "111",
+                "sector_name": "Transport",
+                "vocabulary": "1",
+                "percentage": 100,
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "sector_code": "112",
+                "sector_name": "Health",
+                "vocabulary": "2",
+                "percentage": 100,
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_sector(
         transaction_type="commitment",
@@ -1435,11 +1405,7 @@ def test_transaction_totals_by_sector_separates_vocabularies_and_currencies(
 
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: transaction_type=2, "
-        "currency=USD, vocabulary=1"
-        in text
-    )
+    assert "Applied filters: transaction_type=2, currency=USD, vocabulary=1" in text
     assert "Applied limit: 50" in text
 
 
@@ -1448,9 +1414,7 @@ def test_transaction_totals_by_sector_rejects_blank_currency(
 ):
     result = queries.transaction_totals_by_sector(currency="   ")
 
-    assert _text(result) == (
-        "Currency cannot be empty when provided."
-    )
+    assert _text(result) == ("Currency cannot be empty when provided.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(
@@ -1462,9 +1426,7 @@ def test_transaction_totals_by_sector_rejects_blank_currency(
 def test_transaction_totals_by_sector_rejects_invalid_transaction_type(seed_cache):
     result = queries.transaction_totals_by_sector(transaction_type="invalid")
 
-    assert result.content[0].text == (
-        "Unsupported transaction type. Use commitment, disbursement, 2 or 3."
-    )
+    assert result.content[0].text == ("Unsupported transaction type. Use commitment, disbursement, 2 or 3.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1475,9 +1437,7 @@ def test_transaction_totals_by_sector_rejects_invalid_transaction_type(seed_cach
 def test_transaction_totals_by_sector_rejects_invalid_limit(seed_cache):
     result = queries.transaction_totals_by_sector(limit=0)
 
-    assert result.content[0].text == (
-        "The result limit must be greater than zero."
-    )
+    assert result.content[0].text == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1488,58 +1448,62 @@ def test_transaction_totals_by_sector_rejects_invalid_limit(seed_cache):
 def test_transaction_totals_by_country_groups_by_country_and_currency(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "recipient_country_name": "",
-            "recipient_country_code": "",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 200.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "transaction_type": "2",
-            "value": 500.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "value": 50.0,
-            "currency": "USD",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "recipient_country_name": "",
+                "recipient_country_code": "",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 200.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "transaction_type": "2",
+                "value": 500.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "value": 50.0,
+                "currency": "USD",
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_country(transaction_type="commitment")
 
@@ -1572,9 +1536,7 @@ def test_transaction_totals_by_country_rejects_blank_currency(
 ):
     result = queries.transaction_totals_by_country(currency="   ")
 
-    assert _text(result) == (
-        "Currency cannot be empty when provided."
-    )
+    assert _text(result) == ("Currency cannot be empty when provided.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(result, seed_cache.source)
@@ -1585,9 +1547,7 @@ def test_transaction_totals_by_country_rejects_invalid_limit(
 ):
     result = queries.transaction_totals_by_country(limit=0)
 
-    assert _text(result) == (
-        "The result limit must be greater than zero."
-    )
+    assert _text(result) == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     assert "=== Query details ===" not in _text(result)
     _assert_data_source_only(result, seed_cache.source)
@@ -1596,34 +1556,38 @@ def test_transaction_totals_by_country_rejects_invalid_limit(
 def test_transaction_totals_by_country_filters_by_currency_and_uses_default_currency(
     seed_cache,
 ):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "",
+            },
+        ]
+    )
 
     result = queries.transaction_totals_by_country(
         transaction_type="commitment",
@@ -1636,10 +1600,7 @@ def test_transaction_totals_by_country_filters_by_currency_and_uses_default_curr
     text = _text(result)
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: transaction_type=2, currency=EUR"
-        in text
-    )
+    assert "Applied filters: transaction_type=2, currency=EUR" in text
     assert "Applied limit: 50" in text
 
 
@@ -1648,9 +1609,7 @@ def test_transaction_totals_by_country_rejects_invalid_transaction_type(
 ):
     result = queries.transaction_totals_by_country(transaction_type="invalid")
 
-    assert result.content[0].text == (
-        "Unsupported transaction type. Use commitment, disbursement, 2 or 3."
-    )
+    assert result.content[0].text == ("Unsupported transaction type. Use commitment, disbursement, 2 or 3.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1705,55 +1664,59 @@ def test_top_activities_accepts_disbursement_aliases(
 
 
 def test_top_activities_keeps_currencies_separate_and_sorted(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "reporting_org_name": "Org A",
-            "reporting_org_ref": "ORG-A",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "reporting_org_name": "Org B",
-            "reporting_org_ref": "ORG-B",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "title": "Gamma",
-            "reporting_org_name": "Org C",
-            "reporting_org_ref": "ORG-C",
-            "recipient_country_name": "Chile",
-            "recipient_country_code": "CL",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "transaction_type": "2",
-            "value": 500.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "EUR",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "reporting_org_name": "Org A",
+                "reporting_org_ref": "ORG-A",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "reporting_org_name": "Org B",
+                "reporting_org_ref": "ORG-B",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "title": "Gamma",
+                "reporting_org_name": "Org C",
+                "reporting_org_ref": "ORG-C",
+                "recipient_country_name": "Chile",
+                "recipient_country_code": "CL",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "transaction_type": "2",
+                "value": 500.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "EUR",
+            },
+        ]
+    )
 
     result = queries.top_activities_by_amount(transaction_type="commitment")
     table = result.structuredContent["table"]
@@ -1770,40 +1733,44 @@ def test_top_activities_keeps_currencies_separate_and_sorted(seed_cache):
 
 
 def test_top_activities_filters_by_currency(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "reporting_org_name": "Org A",
-            "reporting_org_ref": "ORG-A",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "reporting_org_name": "Org B",
-            "reporting_org_ref": "ORG-B",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "EUR",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "reporting_org_name": "Org A",
+                "reporting_org_ref": "ORG-A",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "reporting_org_name": "Org B",
+                "reporting_org_ref": "ORG-B",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "EUR",
+            },
+        ]
+    )
 
     result = queries.top_activities_by_amount(
         transaction_type="commitment",
@@ -1815,10 +1782,7 @@ def test_top_activities_filters_by_currency(seed_cache):
     text = _text(result)
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: transaction_type=2, currency=USD"
-        in text
-    )
+    assert "Applied filters: transaction_type=2, currency=USD" in text
     assert "Applied limit: 10" in text
 
 
@@ -1832,43 +1796,44 @@ def test_top_activities_reports_applied_limit(seed_cache):
 
     assert "Total results: 1" in text
     assert "Records shown: 1" in text
-    assert (
-        "Applied filters: transaction_type=2, currency=USD"
-        in text
-    )
+    assert "Applied filters: transaction_type=2, currency=USD" in text
     assert "Applied limit: 1" in text
     assert len(result.structuredContent["table"]) == 2
 
 
 def test_top_activities_uses_default_currency_when_missing(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "reporting_org_name": "Org A",
-            "reporting_org_ref": "ORG-A",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "reporting_org_name": "Org B",
-            "reporting_org_ref": "ORG-B",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "reporting_org_name": "Org A",
+                "reporting_org_ref": "ORG-A",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "reporting_org_name": "Org B",
+                "reporting_org_ref": "ORG-B",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "",
+            },
+        ]
+    )
 
     result = queries.top_activities_by_amount(
         transaction_type="commitment",
@@ -1882,9 +1847,7 @@ def test_top_activities_uses_default_currency_when_missing(seed_cache):
 def test_top_activities_rejects_invalid_transaction_type(seed_cache):
     result = queries.top_activities_by_amount(transaction_type="invalid")
 
-    assert result.content[0].text == (
-        "Unsupported transaction type. Use commitment, disbursement, 2 or 3."
-    )
+    assert result.content[0].text == ("Unsupported transaction type. Use commitment, disbursement, 2 or 3.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1895,9 +1858,7 @@ def test_top_activities_rejects_invalid_transaction_type(seed_cache):
 def test_top_activities_rejects_invalid_limit(seed_cache):
     result = queries.top_activities_by_amount(limit=0)
 
-    assert result.content[0].text == (
-        "The result limit must be greater than zero."
-    )
+    assert result.content[0].text == ("The result limit must be greater than zero.")
     assert "table" not in result.structuredContent
     _assert_data_source_only(
         result,
@@ -1906,55 +1867,59 @@ def test_top_activities_rejects_invalid_limit(seed_cache):
 
 
 def test_top_activities_uses_org_ref_and_unknown_fallbacks(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "reporting_org_name": "Development Bank",
-            "reporting_org_ref": "ORG-001",
-            "recipient_country_name": "Argentina",
-            "recipient_country_code": "AR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "reporting_org_name": "",
-            "reporting_org_ref": "ORG-002",
-            "recipient_country_name": "Brazil",
-            "recipient_country_code": "BR",
-            "default_currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "title": "Gamma",
-            "reporting_org_name": "",
-            "reporting_org_ref": "",
-            "recipient_country_name": "",
-            "recipient_country_code": "",
-            "default_currency": "USD",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-003",
-            "transaction_type": "2",
-            "value": 500.0,
-            "currency": "USD",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "reporting_org_name": "Development Bank",
+                "reporting_org_ref": "ORG-001",
+                "recipient_country_name": "Argentina",
+                "recipient_country_code": "AR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "reporting_org_name": "",
+                "reporting_org_ref": "ORG-002",
+                "recipient_country_name": "Brazil",
+                "recipient_country_code": "BR",
+                "default_currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "title": "Gamma",
+                "reporting_org_name": "",
+                "reporting_org_ref": "",
+                "recipient_country_name": "",
+                "recipient_country_code": "",
+                "default_currency": "USD",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-003",
+                "transaction_type": "2",
+                "value": 500.0,
+                "currency": "USD",
+            },
+        ]
+    )
 
     result = queries.top_activities_by_amount(transaction_type="commitment")
 
@@ -1964,40 +1929,44 @@ def test_top_activities_uses_org_ref_and_unknown_fallbacks(seed_cache):
 
 
 def test_top_activities_uses_country_code_fallback(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "reporting_org_name": "Development Bank",
-            "reporting_org_ref": "ORG-001",
-            "recipient_country_name": "",
-            "recipient_country_code": "BR",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "reporting_org_name": "Org B",
-            "reporting_org_ref": "ORG-B",
-            "recipient_country_name": "",
-            "recipient_country_code": "",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 1000.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 300.0,
-            "currency": "EUR",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "reporting_org_name": "Development Bank",
+                "reporting_org_ref": "ORG-001",
+                "recipient_country_name": "",
+                "recipient_country_code": "BR",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "reporting_org_name": "Org B",
+                "reporting_org_ref": "ORG-B",
+                "recipient_country_name": "",
+                "recipient_country_code": "",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 1000.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 300.0,
+                "currency": "EUR",
+            },
+        ]
+    )
 
     result = queries.top_activities_by_amount(transaction_type="commitment")
 
@@ -2005,11 +1974,7 @@ def test_top_activities_uses_country_code_fallback(seed_cache):
     assert "Unknown" in _text(result)
     table = result.structuredContent["table"]
 
-    assert all(
-        str(cell).strip().lower() != "nan"
-        for row in table
-        for cell in row
-    )
+    assert all(str(cell).strip().lower() != "nan" for row in table for cell in row)
 
 
 def test_file_overview_summarises_loaded_iati_data(seed_cache):
@@ -2087,54 +2052,58 @@ def test_file_overview_summarises_loaded_iati_data(seed_cache):
 
 
 def test_file_overview_keeps_transaction_currencies_separate(seed_cache):
-    data._cache["dataframe:activities"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "title": "Alpha",
-            "activity_status": "2",
-            "reporting_org_name": "Org A",
-            "reporting_org_ref": "ORG-A",
-            "recipient_country_code": "AR",
-            "recipient_country_name": "Argentina",
-            "default_currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "title": "Beta",
-            "activity_status": "2",
-            "reporting_org_name": "Org B",
-            "reporting_org_ref": "ORG-B",
-            "recipient_country_code": "BR",
-            "recipient_country_name": "Brazil",
-            "default_currency": "EUR",
-        },
-    ])
-    data._cache["dataframe:transactions"] = pd.DataFrame([
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "2",
-            "value": 100.0,
-            "currency": "USD",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 200.0,
-            "currency": "EUR",
-        },
-        {
-            "activity_identifier": "IATI-002",
-            "transaction_type": "2",
-            "value": 50.0,
-            "currency": "",
-        },
-        {
-            "activity_identifier": "IATI-001",
-            "transaction_type": "3",
-            "value": 40.0,
-            "currency": "USD",
-        },
-    ])
+    data._cache["dataframe:activities"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "title": "Alpha",
+                "activity_status": "2",
+                "reporting_org_name": "Org A",
+                "reporting_org_ref": "ORG-A",
+                "recipient_country_code": "AR",
+                "recipient_country_name": "Argentina",
+                "default_currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "title": "Beta",
+                "activity_status": "2",
+                "reporting_org_name": "Org B",
+                "reporting_org_ref": "ORG-B",
+                "recipient_country_code": "BR",
+                "recipient_country_name": "Brazil",
+                "default_currency": "EUR",
+            },
+        ]
+    )
+    data._cache["dataframe:transactions"] = pd.DataFrame(
+        [
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "2",
+                "value": 100.0,
+                "currency": "USD",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 200.0,
+                "currency": "EUR",
+            },
+            {
+                "activity_identifier": "IATI-002",
+                "transaction_type": "2",
+                "value": 50.0,
+                "currency": "",
+            },
+            {
+                "activity_identifier": "IATI-001",
+                "transaction_type": "3",
+                "value": 40.0,
+                "currency": "USD",
+            },
+        ]
+    )
 
     result = queries.file_overview()
     table = result.structuredContent["table"]
@@ -2235,6 +2204,7 @@ def test_date_coverage_reports_activity_and_transaction_ranges(seed_cache):
         0,
     ] in table
 
+
 def test_date_coverage_falls_back_to_activity_date_elements(seed_cache):
     # The synthetic activities have no date columns, so the coverage must
     # come from the activity-date elements seeded in conftest (IATI-001:
@@ -2324,13 +2294,9 @@ def test_date_coverage_rejects_invalid_date_kind(
     result = queries.date_coverage(date_kind=date_kind)
 
     assert "table" not in result.structuredContent
-    assert (
-        "Unsupported date kind. Use activities, transactions or all."
-        in result.content[0].text
-    )
-    assert result.structuredContent["sources"] == [
-        "/data/fake-iati-sample.xml"
-    ]
+    assert "Unsupported date kind. Use activities, transactions or all." in result.content[0].text
+    assert result.structuredContent["sources"] == ["/data/fake-iati-sample.xml"]
+
 
 def test_list_category_values_lists_activity_statuses(seed_cache):
     result = queries.list_category_values("activity_status")
@@ -2383,6 +2349,7 @@ def test_list_category_values_lists_transaction_types(seed_cache):
         1,
     ] in table
 
+
 def test_list_category_values_lists_sectors(seed_cache):
     result = queries.list_category_values("sector")
 
@@ -2413,9 +2380,7 @@ def test_list_category_values_lists_optional_activity_categories(
     seed_cache.activities["default_aid_type_vocabulary"] = ["1", "1"]
     seed_cache.activities["humanitarian"] = ["0", "1"]
 
-    organisation_result = queries.list_category_values(
-        "organisation_type"
-    )
+    organisation_result = queries.list_category_values("organisation_type")
     organisation_table = organisation_result.structuredContent["table"]
 
     assert [
@@ -2472,6 +2437,7 @@ def test_list_category_values_lists_optional_activity_categories(
         1,
     ] in humanitarian_table
 
+
 def test_list_category_values_reports_applied_limit(seed_cache):
     result = queries.list_category_values(
         "transaction_type",
@@ -2501,9 +2467,7 @@ def test_list_category_values_rejects_invalid_category(seed_cache):
 
     assert "table" not in result.structuredContent
     assert "Unsupported category. Use one of:" in result.content[0].text
-    assert result.structuredContent["sources"] == [
-        "/data/fake-iati-sample.xml"
-    ]
+    assert result.structuredContent["sources"] == ["/data/fake-iati-sample.xml"]
 
 
 def test_list_category_values_rejects_invalid_limit(seed_cache):
@@ -2513,31 +2477,23 @@ def test_list_category_values_rejects_invalid_limit(seed_cache):
     )
 
     assert "table" not in result.structuredContent
-    assert (
-        "The result limit must be greater than zero."
-        in result.content[0].text
-    )
+    assert "The result limit must be greater than zero." in result.content[0].text
 
 
 def test_list_category_values_reports_unavailable_optional_field(
-    seed_cache,):
+    seed_cache,
+):
     result = queries.list_category_values("organisation_type")
 
     assert "table" not in result.structuredContent
-    assert (
-        "Category 'organisation_type' is not available"
-        in result.content[0].text
-    )
+    assert "Category 'organisation_type' is not available" in result.content[0].text
 
 
 def test_filter_activities_combines_country_and_sector(seed_cache):
     result = queries.filter_activities(country="BR", sector="health")
     text = _text(result)
 
-    assert text.startswith(
-        "Found 1 IATI activity(ies) for recipient country 'BR' and for "
-        "sector 'health'."
-    )
+    assert text.startswith("Found 1 IATI activity(ies) for recipient country 'BR' and for sector 'health'.")
     assert "Matched by ISO code: recipient country 'BR' resolved to BR (Brazil)." in text
     assert "Matched by name substring: sector 'health' resolved to Basic health care (12220)." in text
     assert "Applied filters: recipient_country=BR, sector=health" in text
@@ -2565,10 +2521,7 @@ def test_filter_activities_combines_country_and_sector(seed_cache):
 def test_filter_activities_intersection_can_be_empty(seed_cache):
     result = queries.filter_activities(country="AR", sector="health")
 
-    assert _text(result) == (
-        "No IATI activities were found for recipient country 'AR' and "
-        "for sector 'health'."
-    )
+    assert _text(result) == ("No IATI activities were found for recipient country 'AR' and for sector 'health'.")
     assert "table" not in result.structuredContent
 
 
@@ -2601,8 +2554,7 @@ def test_filter_activities_reports_unresolved_criterion(seed_cache):
     text = _text(result)
 
     assert text == (
-        "No recipient country matches 'Uruguay' (ISO code UY). Available "
-        "recipient countries: AR (Argentina); BR (Brazil)"
+        "No recipient country matches 'Uruguay' (ISO code UY). Available recipient countries: AR (Argentina); BR (Brazil)"
     )
     assert "table" not in result.structuredContent
 
@@ -2614,10 +2566,7 @@ def test_filter_activities_by_status_code_or_label(seed_cache, status):
 
     assert "IATI-002" in text
     assert "IATI-001" not in text
-    assert (
-        f"Matched by exact code or label: activity status '{status}' "
-        "resolved to 3 (Completion)."
-    ) in text
+    assert (f"Matched by exact code or label: activity status '{status}' resolved to 3 (Completion).") in text
     assert result.structuredContent["table"][0] == [
         "IATI identifier",
         "Title",
@@ -2630,10 +2579,7 @@ def test_filter_activities_by_status_code_or_label(seed_cache, status):
 def test_filter_activities_rejects_unknown_status(seed_cache):
     result = queries.filter_activities(status="banana")
 
-    assert _text(result) == (
-        "No activity status matches 'banana'. Available statuses: "
-        "2 (Implementation); 3 (Completion)"
-    )
+    assert _text(result) == ("No activity status matches 'banana'. Available statuses: 2 (Implementation); 3 (Completion)")
 
 
 def test_filter_activities_text_with_organisation(seed_cache):
@@ -2655,8 +2601,5 @@ def test_filter_activities_text_with_organisation(seed_cache):
 def test_filter_activities_requires_a_criterion(seed_cache):
     result = queries.filter_activities()
 
-    assert _text(result) == (
-        "At least one filter is required: country, sector, organisation, "
-        "status or text."
-    )
+    assert _text(result) == ("At least one filter is required: country, sector, organisation, status or text.")
     assert "table" not in result.structuredContent

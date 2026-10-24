@@ -31,6 +31,7 @@ def test_build_table_applies_headers_and_formatters():
         ["IATI-1", "Implementation"],
     ]
 
+
 def test_text_result_appends_only_relevant_glossary_terms():
     result = h.text_result(
         "Annual totals.",
@@ -70,6 +71,7 @@ def test_text_result_without_tool_preserves_existing_behavior():
     assert result.structuredContent["sources"] == [
         "/data/example.xml",
     ]
+
 
 def test_empty_result_does_not_include_glossary():
     result = h.empty_result(

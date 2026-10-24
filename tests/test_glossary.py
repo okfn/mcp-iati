@@ -106,9 +106,7 @@ def test_glossary_text_rejects_unknown_terms():
 
 
 def test_search_terms_exact_match_is_case_insensitive():
-    assert search_terms("Disbursement") == [
-        ("disbursement", IATI_GLOSSARY["disbursement"])
-    ]
+    assert search_terms("Disbursement") == [("disbursement", IATI_GLOSSARY["disbursement"])]
 
 
 def test_search_terms_exact_match_wins_over_partial():
@@ -142,6 +140,7 @@ def test_search_terms_empty_for_unknown_or_blank():
     assert search_terms("xyzzy") == []
     assert search_terms("   ") == []
 
+
 def test_every_tool_glossary_term_exists():
     for terms in TOOL_GLOSSARY_TERMS.values():
         assert all(term in IATI_GLOSSARY for term in terms)
@@ -171,6 +170,7 @@ def test_tool_glossary_text_only_contains_relevant_definitions():
 
 def test_tool_glossary_text_is_empty_for_unknown_tool():
     assert tool_glossary_text("unknown_tool") == ""
+
 
 def test_search_activities_empty_response_has_no_glossary(seed_cache):
     result = queries.search_activities("not-present")

@@ -1,4 +1,4 @@
-""" Simple pandas queries over the flattened IATI activities/transactions CSV.
+"""Simple pandas queries over the flattened IATI activities/transactions CSV.
 
 Field names and codes (activity_status, transaction_type) come from the IATI
 standard codelists, so these queries work for any IATI activities XML, not
@@ -7,6 +7,7 @@ just the bundled sample - see data.py.
 Each query passes `xml_source()` as the source; the raw table data is
 embedded into the AI-facing text by `h.text_result` (see helpers/format.py).
 """
+
 import difflib
 import unicodedata
 
@@ -46,20 +47,12 @@ def _fold_text(value) -> str:
     them while responses keep the names exactly as published.
     """
     normalized = unicodedata.normalize("NFKD", str(value))
-    return "".join(
-        char
-        for char in normalized
-        if not unicodedata.combining(char)
-    ).casefold()
+    return "".join(char for char in normalized if not unicodedata.combining(char)).casefold()
 
 
 def _folded(series: pd.Series) -> pd.Series:
     """Return a Series folded with `_fold_text` for matching."""
-    return (
-        series.fillna("")
-        .astype(str)
-        .map(_fold_text)
-    )
+    return series.fillna("").astype(str).map(_fold_text)
 
 
 def _named_sectors(sectors: pd.DataFrame) -> pd.DataFrame:
@@ -76,16 +69,8 @@ def _named_sectors(sectors: pd.DataFrame) -> pd.DataFrame:
         "sector_name",
         "vocabulary",
     ):
-        sectors[column] = (
-            sectors[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-    missing_name = (
-        (sectors["sector_name"] == "")
-        & (sectors["vocabulary"] == "1")
-    )
+        sectors[column] = sectors[column].fillna("").astype(str).str.strip()
+    missing_name = (sectors["sector_name"] == "") & (sectors["vocabulary"] == "1")
     sectors.loc[missing_name, "sector_name"] = sectors.loc[
         missing_name,
         "sector_code",
@@ -124,15 +109,14 @@ def _year_totals_charts(grouped: pd.DataFrame) -> list[dict]:
             values="value",
             aggfunc="sum",
         ).reindex(years)
-        series = [
-            (h.transaction_type_label(code), pivot[code].tolist())
-            for code in sorted(pivot.columns)
-        ]
-        charts.append(h.charts.bar_chart(
-            f"Commitments and disbursements by year ({_currency_label(currency)})",
-            years,
-            series,
-        ))
+        series = [(h.transaction_type_label(code), pivot[code].tolist()) for code in sorted(pivot.columns)]
+        charts.append(
+            h.charts.bar_chart(
+                f"Commitments and disbursements by year ({_currency_label(currency)})",
+                years,
+                series,
+            )
+        )
     return charts[:MAX_CHARTS]
 
 
@@ -164,11 +148,12 @@ def _sector_totals_charts(grouped: pd.DataFrame, transaction_type_code: str) -> 
         )
         if len(slices) < 2:
             continue
-        charts.append(h.charts.pie_chart(
-            f"{type_label} by sector: {h.charts.vocabulary_label(vocabulary)} "
-            f"({_currency_label(currency)})",
-            slices,
-        ))
+        charts.append(
+            h.charts.pie_chart(
+                f"{type_label} by sector: {h.charts.vocabulary_label(vocabulary)} ({_currency_label(currency)})",
+                slices,
+            )
+        )
     return charts[:MAX_CHARTS]
 
 
@@ -179,11 +164,13 @@ def _sector_count_charts(shown: pd.DataFrame) -> list[dict]:
         top = group.head(CHART_TOP_N)
         if len(top) < 2:
             continue
-        charts.append(h.charts.bar_chart(
-            f"Activities by sector: {h.charts.vocabulary_label(vocabulary)} (top {len(top)})",
-            [h.charts.short_label(name) for name in top["display_name"]],
-            [("Activities", top["activities"].tolist())],
-        ))
+        charts.append(
+            h.charts.bar_chart(
+                f"Activities by sector: {h.charts.vocabulary_label(vocabulary)} (top {len(top)})",
+                [h.charts.short_label(name) for name in top["display_name"]],
+                [("Activities", top["activities"].tolist())],
+            )
+        )
     return charts[:MAX_CHARTS]
 
 
@@ -195,21 +182,18 @@ def _participating_org_charts(shown: pd.DataFrame) -> list[dict]:
     its capital window), which flattens every other bar; it is left out of
     the chart, never out of the table.
     """
-    reporting_refs = set(
-        activities_df()["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    ) - {""}
+    reporting_refs = set(activities_df()["reporting_org_ref"].fillna("").astype(str).str.strip()) - {""}
     top = shown[~shown["org_ref"].isin(reporting_refs)].head(CHART_TOP_N)
     if len(top) < 2:
         return []
     suffix = ", excluding the reporting organisation" if reporting_refs else ""
-    return [h.charts.bar_chart(
-        f"Participating organisations by number of activities (top {len(top)}{suffix})",
-        [h.charts.short_label(name) for name in top["display_name"]],
-        [("Activities", top["activities"].tolist())],
-    )]
+    return [
+        h.charts.bar_chart(
+            f"Participating organisations by number of activities (top {len(top)}{suffix})",
+            [h.charts.short_label(name) for name in top["display_name"]],
+            [("Activities", top["activities"].tolist())],
+        )
+    ]
 
 
 def _top_activity_charts(grouped: pd.DataFrame, transaction_type_code: str) -> list[dict]:
@@ -224,11 +208,13 @@ def _top_activity_charts(grouped: pd.DataFrame, transaction_type_code: str) -> l
             h.charts.short_label(title if str(title).strip() else identifier, 35)
             for title, identifier in zip(top["title"], top["activity_identifier"])
         ]
-        charts.append(h.charts.bar_chart(
-            f"Largest activities by {type_label.lower()} ({_currency_label(currency)})",
-            labels,
-            [(type_label, top["value"].tolist())],
-        ))
+        charts.append(
+            h.charts.bar_chart(
+                f"Largest activities by {type_label.lower()} ({_currency_label(currency)})",
+                labels,
+                [(type_label, top["value"].tolist())],
+            )
+        )
     return charts[:MAX_CHARTS]
 
 
@@ -249,11 +235,13 @@ def _activity_transaction_charts(shown: pd.DataFrame, iati_identifier: str) -> l
         for code, by_type in group.groupby("transaction_type", sort=True):
             per_date = by_type.groupby("date")["value"].sum().reindex(dates, fill_value=0.0)
             series.append((h.transaction_type_label(code), per_date.cumsum().tolist()))
-        charts.append(h.charts.line_chart(
-            f"Cumulative transactions of {iati_identifier} ({_currency_label(currency)})",
-            [pd.Timestamp(date).strftime("%Y-%m-%d") for date in dates],
-            series,
-        ))
+        charts.append(
+            h.charts.line_chart(
+                f"Cumulative transactions of {iati_identifier} ({_currency_label(currency)})",
+                [pd.Timestamp(date).strftime("%Y-%m-%d") for date in dates],
+                series,
+            )
+        )
     return charts[:MAX_CHARTS]
 
 
@@ -269,16 +257,9 @@ def file_overview():
             source_url=xml_source(),
         )
 
-    activities["activity_identifier"] = (
-        activities["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    activities["activity_identifier"] = activities["activity_identifier"].fillna("").astype(str).str.strip()
 
-    total_activities = activities[
-        "activity_identifier"
-    ].replace("", pd.NA).nunique()
+    total_activities = activities["activity_identifier"].replace("", pd.NA).nunique()
 
     rows = [
         {
@@ -291,18 +272,8 @@ def file_overview():
     ]
 
     # Reporting organisations.
-    activities["reporting_org_name"] = (
-        activities["reporting_org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["reporting_org_ref"] = (
-        activities["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    activities["reporting_org_name"] = activities["reporting_org_name"].fillna("").astype(str).str.strip()
+    activities["reporting_org_ref"] = activities["reporting_org_ref"].fillna("").astype(str).str.strip()
     activities["display_org"] = activities["reporting_org_name"].where(
         activities["reporting_org_name"] != "",
         activities["reporting_org_ref"],
@@ -312,13 +283,7 @@ def file_overview():
         "Unknown reporting organisation",
     )
 
-    organisation_counts = (
-        activities.groupby("display_org", dropna=False)[
-            "activity_identifier"
-        ]
-        .nunique()
-        .sort_index()
-    )
+    organisation_counts = activities.groupby("display_org", dropna=False)["activity_identifier"].nunique().sort_index()
 
     for organisation, count in organisation_counts.items():
         rows.append(
@@ -332,22 +297,9 @@ def file_overview():
         )
 
     # Recipient countries.
-    activities["recipient_country_name"] = (
-        activities["recipient_country_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["recipient_country_code"] = (
-        activities["recipient_country_code"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    activities["display_country"] = activities[
-        "recipient_country_name"
-    ].where(
+    activities["recipient_country_name"] = activities["recipient_country_name"].fillna("").astype(str).str.strip()
+    activities["recipient_country_code"] = activities["recipient_country_code"].fillna("").astype(str).str.strip().str.upper()
+    activities["display_country"] = activities["recipient_country_name"].where(
         activities["recipient_country_name"] != "",
         activities["recipient_country_code"],
     )
@@ -356,13 +308,7 @@ def file_overview():
         "Unknown",
     )
 
-    country_counts = (
-        activities.groupby("display_country", dropna=False)[
-            "activity_identifier"
-        ]
-        .nunique()
-        .sort_index()
-    )
+    country_counts = activities.groupby("display_country", dropna=False)["activity_identifier"].nunique().sort_index()
 
     for country, count in country_counts.items():
         rows.append(
@@ -376,13 +322,7 @@ def file_overview():
         )
 
     # Default currencies declared by activities.
-    activities["default_currency"] = (
-        activities["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    activities["default_currency"] = activities["default_currency"].fillna("").astype(str).str.strip().str.upper()
     currency_counts = (
         activities.loc[
             activities["default_currency"] != "",
@@ -405,40 +345,23 @@ def file_overview():
 
     # Financial totals, kept separate by transaction type and currency.
     if not transactions.empty:
-        transactions["transaction_type"] = (
-            transactions["transaction_type"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-        transactions["currency"] = (
-            transactions["currency"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        transactions["transaction_type"] = transactions["transaction_type"].fillna("").astype(str).str.strip()
+        transactions["currency"] = transactions["currency"].fillna("").astype(str).str.strip().str.upper()
         transactions["value"] = pd.to_numeric(
             transactions["value"],
             errors="coerce",
         )
 
-        default_currencies = activities[
-            ["activity_identifier", "default_currency"]
-        ].drop_duplicates(subset=["activity_identifier"])
+        default_currencies = activities[["activity_identifier", "default_currency"]].drop_duplicates(
+            subset=["activity_identifier"]
+        )
 
         transactions = transactions.merge(
             default_currencies,
             on="activity_identifier",
             how="left",
         )
-        transactions["default_currency"] = (
-            transactions["default_currency"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        transactions["default_currency"] = transactions["default_currency"].fillna("").astype(str).str.strip().str.upper()
         transactions["currency"] = transactions["currency"].where(
             transactions["currency"] != "",
             transactions["default_currency"],
@@ -449,10 +372,7 @@ def file_overview():
         )
 
         transaction_totals = (
-            transactions.loc[
-                transactions["value"].notna()
-                & (transactions["transaction_type"] != "")
-            ]
+            transactions.loc[transactions["value"].notna() & (transactions["transaction_type"] != "")]
             .groupby(
                 ["transaction_type", "currency"],
                 dropna=False,
@@ -460,9 +380,7 @@ def file_overview():
             .agg(["count", "sum"])
             .reset_index()
         )
-        transaction_totals["type_label"] = transaction_totals[
-            "transaction_type"
-        ].map(h.transaction_type_label)
+        transaction_totals["type_label"] = transaction_totals["transaction_type"].map(h.transaction_type_label)
         transaction_totals = transaction_totals.sort_values(
             ["type_label", "currency"],
             kind="mergesort",
@@ -524,12 +442,7 @@ def date_coverage(date_kind: str = "all"):
 
     def column_series(dataframe, column: str) -> pd.Series:
         if column in dataframe.columns:
-            return (
-                dataframe[column]
-                .fillna("")
-                .astype(str)
-                .str.strip()
-            )
+            return dataframe[column].fillna("").astype(str).str.strip()
         return pd.Series(
             "",
             index=dataframe.index,
@@ -556,16 +469,8 @@ def date_coverage(date_kind: str = "all"):
         latest = ""
 
         if valid_dates.any():
-            earliest = (
-                parsed_dates.loc[valid_dates]
-                .min()
-                .strftime("%Y-%m-%d")
-            )
-            latest = (
-                parsed_dates.loc[valid_dates]
-                .max()
-                .strftime("%Y-%m-%d")
-            )
+            earliest = parsed_dates.loc[valid_dates].min().strftime("%Y-%m-%d")
+            latest = parsed_dates.loc[valid_dates].max().strftime("%Y-%m-%d")
 
         rows.append(
             {
@@ -632,16 +537,8 @@ def date_coverage(date_kind: str = "all"):
         ],
     )
 
-    earliest_dates = [
-        row["earliest"]
-        for row in rows
-        if row["earliest"]
-    ]
-    latest_dates = [
-        row["latest"]
-        for row in rows
-        if row["latest"]
-    ]
+    earliest_dates = [row["earliest"] for row in rows if row["earliest"]]
+    latest_dates = [row["latest"] for row in rows if row["latest"]]
 
     if earliest_dates and latest_dates:
         summary = (
@@ -650,10 +547,7 @@ def date_coverage(date_kind: str = "all"):
             "are reported separately for each date type."
         )
     else:
-        summary = (
-            "No valid dates were found for the selected date coverage. "
-            "Missing and invalid dates are reported in the table."
-        )
+        summary = "No valid dates were found for the selected date coverage. Missing and invalid dates are reported in the table."
 
     return h.text_result(
         summary,
@@ -754,28 +648,15 @@ def list_category_values(
 
     if code_column not in dataframe.columns:
         return h.empty_result(
-            f"Category '{selected_category}' is not available "
-            "in the loaded IATI data.",
+            f"Category '{selected_category}' is not available in the loaded IATI data.",
             source_url=xml_source(),
         )
 
-    working = pd.DataFrame({
-        "code": (
-            dataframe[code_column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-    })
+    working = pd.DataFrame({"code": (dataframe[code_column].fillna("").astype(str).str.strip())})
 
     value_column = spec.get("value_column")
     if value_column and value_column in dataframe.columns:
-        explicit_values = (
-            dataframe[value_column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        explicit_values = dataframe[value_column].fillna("").astype(str).str.strip()
     else:
         explicit_values = pd.Series(
             "",
@@ -785,12 +666,7 @@ def list_category_values(
 
     vocabulary_column = spec.get("vocabulary_column")
     if vocabulary_column and vocabulary_column in dataframe.columns:
-        working["vocabulary"] = (
-            dataframe[vocabulary_column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        working["vocabulary"] = dataframe[vocabulary_column].fillna("").astype(str).str.strip()
     else:
         working["vocabulary"] = ""
 
@@ -798,8 +674,7 @@ def list_category_values(
 
     if working.empty:
         return h.empty_result(
-            f"No values were found for category "
-            f"'{selected_category}'.",
+            f"No values were found for category '{selected_category}'.",
             source_url=xml_source(),
         )
 
@@ -864,10 +739,7 @@ def list_category_values(
         ],
     )
 
-    summary = (
-        f"Found {total} value(s) for category "
-        f"'{selected_category}'."
-    )
+    summary = f"Found {total} value(s) for category '{selected_category}'."
 
     return h.text_result(
         summary,
@@ -881,7 +753,13 @@ def list_category_values(
     )
 
 
-def search_activities(text: str, limit: int = 10):
+def search_activities(  # noqa: C901
+    text: str,
+    search_in: str = "all",
+    status: str | None = None,
+    year: int | None = None,
+    limit: int = 10,
+):
     """Search IATI activities by text in their title, description, sectors
     or participating organisation names."""
     tool_name = "search_activities"
@@ -900,18 +778,22 @@ def search_activities(text: str, limit: int = 10):
             source_url=xml_source(),
         )
 
+    if search_in not in {"title", "description", "all"}:
+        return h.empty_result(
+            "search_in must be title, description or all.",
+            source_url=xml_source(),
+        )
+
     needle = _fold_text(search_text)
 
     def _contains(series: pd.Series) -> pd.Series:
         return _folded(series).str.contains(needle, regex=False)
 
-    activities = (
-        activities_df()
-        .drop_duplicates(subset=["activity_identifier"])
-        .copy()
-    )
+    activities = activities_df().drop_duplicates(subset=["activity_identifier"]).copy()
 
     title_match = _contains(activities["title"])
+    if search_in == "description":
+        title_match = pd.Series(False, index=activities.index)
 
     # The description column is optional: okfn_iati emits it for IATI 2.x
     # files, but tools must keep working with any activities CSV.
@@ -919,40 +801,50 @@ def search_activities(text: str, limit: int = 10):
         description_match = _contains(activities["description"])
     else:
         description_match = pd.Series(False, index=activities.index)
+    if search_in == "title":
+        description_match = pd.Series(False, index=activities.index)
+
+    if status is not None:
+        status_code = str(status).strip()
+        activities = activities[_stripped(activities["activity_status"]) == status_code]
+        title_match = title_match.reindex(activities.index, fill_value=False)
+        description_match = description_match.reindex(activities.index, fill_value=False)
+
+    if year is not None:
+        date_columns = [
+            name
+            for name in (
+                "planned_start_date",
+                "actual_start_date",
+                "planned_end_date",
+                "actual_end_date",
+            )
+            if name in activities.columns
+        ]
+        if date_columns:
+            year_mask = pd.Series(False, index=activities.index)
+            for column in date_columns:
+                parsed = pd.to_datetime(activities[column], errors="coerce", format="mixed")
+                year_mask |= parsed.dt.year.eq(year)
+            activities = activities[year_mask]
+            title_match = title_match.reindex(activities.index, fill_value=False)
+            description_match = description_match.reindex(activities.index, fill_value=False)
 
     sectors = _named_sectors(sectors_df())
     sector_hits = sectors[_contains(sectors["sector_name"])]
     sector_names = (
         sector_hits.groupby("activity_identifier")["sector_name"]
-        .apply(
-            lambda names: ", ".join(
-                sorted({name for name in names if name})
-            )
-        )
+        .apply(lambda names: ", ".join(sorted({name for name in names if name})))
         .to_dict()
     )
 
     orgs = participating_orgs_df()
     org_hits = orgs[_contains(orgs["org_name"])].copy()
-    org_hits["activity_identifier"] = (
-        org_hits["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    org_hits["org_name"] = (
-        org_hits["org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    org_hits["activity_identifier"] = org_hits["activity_identifier"].fillna("").astype(str).str.strip()
+    org_hits["org_name"] = org_hits["org_name"].fillna("").astype(str).str.strip()
     org_names = (
         org_hits.groupby("activity_identifier")["org_name"]
-        .apply(
-            lambda names: ", ".join(
-                sorted({name for name in names if name})
-            )
-        )
+        .apply(lambda names: ", ".join(sorted({name for name in names if name})))
         .to_dict()
     )
 
@@ -967,12 +859,13 @@ def search_activities(text: str, limit: int = 10):
             fields.append("title")
         if description_hit:
             fields.append("description")
-        matched_sectors = sector_names.get(identifier)
-        if matched_sectors:
-            fields.append(f"sector ({matched_sectors})")
-        matched_orgs = org_names.get(identifier)
-        if matched_orgs:
-            fields.append(f"participating org ({matched_orgs})")
+        if search_in == "all":
+            matched_sectors = sector_names.get(identifier)
+            if matched_sectors:
+                fields.append(f"sector ({matched_sectors})")
+            matched_orgs = org_names.get(identifier)
+            if matched_orgs:
+                fields.append(f"participating org ({matched_orgs})")
         matched_in.append(", ".join(fields))
     activities["matched_in"] = matched_in
 
@@ -984,9 +877,7 @@ def search_activities(text: str, limit: int = 10):
 
     if matches.empty:
         return h.empty_result(
-            f"No IATI activities found with '{search_text}' in their "
-            "title, description, sectors or participating "
-            "organisations.",
+            f"No IATI activities found with '{search_text}' in their title, description, sectors or participating organisations.",
             source_url=xml_source(),
         )
 
@@ -1025,7 +916,12 @@ def search_activities(text: str, limit: int = 10):
         tool_name=tool_name,
         total=total,
         shown=shown,
-        filters={"text_contains": search_text},
+        filters={
+            "text_contains": search_text,
+            "search_in": search_in,
+            "status": status,
+            "year": year,
+        },
         limit=limit,
     )
 
@@ -1035,13 +931,7 @@ def list_activity_statuses():
     tool_name = "list_activity_statuses"
     activities = activities_df()
 
-    counts = (
-        activities["activity_status"]
-        .dropna()
-        .astype(str)
-        .value_counts()
-        .sort_index()
-    )
+    counts = activities["activity_status"].dropna().astype(str).value_counts().sort_index()
 
     if counts.empty:
         return h.empty_result(
@@ -1067,17 +957,16 @@ def list_activity_statuses():
         ],
     )
 
-    summary = (
-        f"Found {len(rows)} activity status value(s) "
-        f"across {sum(counts)} activities."
-    )
+    summary = f"Found {len(rows)} activity status value(s) across {sum(counts)} activities."
 
     charts = []
     if len(rows) >= 2:
-        charts.append(h.charts.pie_chart(
-            "Activities by status",
-            [(row["status"], row["activities"]) for row in rows],
-        ))
+        charts.append(
+            h.charts.pie_chart(
+                "Activities by status",
+                [(row["status"], row["activities"]) for row in rows],
+            )
+        )
 
     return h.text_result(
         summary,
@@ -1101,9 +990,7 @@ def _clean_cell(value) -> str:
 def _activity_sector_labels(iati_identifier: str) -> list[str]:
     """Return display labels for the sectors of one activity."""
     sectors = _named_sectors(sectors_df())
-    activity_sectors = sectors[
-        sectors["activity_identifier"] == iati_identifier
-    ]
+    activity_sectors = sectors[sectors["activity_identifier"] == iati_identifier]
 
     labels = []
     for _, sector in activity_sectors.iterrows():
@@ -1151,12 +1038,7 @@ def _activity_date_parts(iati_identifier: str) -> list[str]:
     elements, leaving the activities.csv date columns empty.
     """
     dates = activity_dates_df()
-    date_ids = (
-        dates["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    date_ids = dates["activity_identifier"].fillna("").astype(str).str.strip()
     dates = dates[date_ids == iati_identifier]
 
     keyed_parts = []
@@ -1176,27 +1058,16 @@ def _activity_date_parts(iati_identifier: str) -> list[str]:
 def _participating_org_lines(iati_identifier: str) -> list[str]:
     """Return display lines for the participating organisations of one activity."""
     orgs = participating_orgs_df()
-    org_ids = (
-        orgs["activity_identifier"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    org_ids = orgs["activity_identifier"].fillna("").astype(str).str.strip()
     orgs = orgs[org_ids == iati_identifier]
 
     lines = []
     for _, org in orgs.iterrows():
-        name = (
-            _clean_cell(org.get("org_name"))
-            or _clean_cell(org.get("org_ref"))
-            or "Unknown organisation"
-        )
+        name = _clean_cell(org.get("org_name")) or _clean_cell(org.get("org_ref")) or "Unknown organisation"
         details = []
         role = _clean_cell(org.get("role"))
         if role:
-            details.append(
-                f"role: {h.organisation_role_label(role)}"
-            )
+            details.append(f"role: {h.organisation_role_label(role)}")
         org_type = _clean_cell(org.get("org_type"))
         if org_type:
             details.append(
@@ -1251,10 +1122,7 @@ def activity_summary(iati_identifier: str):
     if description:
         lines.append(f"Description: {description}")
 
-    recipient = (
-        field("recipient_country_name")
-        or field("recipient_country_code")
-    )
+    recipient = field("recipient_country_name") or field("recipient_country_code")
     if recipient:
         lines.append(f"Recipient country: {recipient}")
 
@@ -1334,29 +1202,15 @@ def list_reporting_organisations():
 
     # pandas represents empty CSV cells as NaN. Normalize them before
     # grouping so they never appear as "nan" in tool responses.
-    organisations["reporting_org_ref"] = (
-        organisations["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    organisations["reporting_org_name"] = (
-        organisations["reporting_org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    organisations["reporting_org_ref"] = organisations["reporting_org_ref"].fillna("").astype(str).str.strip()
+    organisations["reporting_org_name"] = organisations["reporting_org_name"].fillna("").astype(str).str.strip()
 
-    organisations["display_name"] = organisations[
-        "reporting_org_name"
-    ].where(
+    organisations["display_name"] = organisations["reporting_org_name"].where(
         organisations["reporting_org_name"] != "",
         organisations["reporting_org_ref"],
     )
 
-    organisations = organisations[
-        organisations["display_name"] != ""
-    ]
+    organisations = organisations[organisations["display_name"] != ""]
 
     if organisations.empty:
         return h.empty_result(
@@ -1388,10 +1242,7 @@ def list_reporting_organisations():
         ],
     )
 
-    summary = (
-        f"Found {len(rows)} reporting organisation(s) "
-        f"across {len(organisations)} activities."
-    )
+    summary = f"Found {len(rows)} reporting organisation(s) across {len(organisations)} activities."
 
     return h.text_result(
         summary,
@@ -1421,31 +1272,21 @@ def list_participating_organisations(limit: int = 300):
         "org_name",
         "role",
     ):
-        organisations[column] = (
-            organisations[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        organisations[column] = organisations[column].fillna("").astype(str).str.strip()
 
     organisations["display_name"] = organisations["org_name"].where(
         organisations["org_name"] != "",
         organisations["org_ref"],
     )
-    organisations = organisations[
-        organisations["display_name"] != ""
-    ]
+    organisations = organisations[organisations["display_name"] != ""]
 
     if organisations.empty:
         return h.empty_result(
-            "No participating organisations were found in the loaded "
-            "IATI data.",
+            "No participating organisations were found in the loaded IATI data.",
             source_url=xml_source(),
         )
 
-    organisations["role_label"] = organisations["role"].map(
-        h.organisation_role_label
-    )
+    organisations["role_label"] = organisations["role"].map(h.organisation_role_label)
 
     grouped = (
         organisations.groupby(
@@ -1456,9 +1297,7 @@ def list_participating_organisations(limit: int = 300):
             activities=("activity_identifier", "nunique"),
             roles=(
                 "role_label",
-                lambda labels: ", ".join(
-                    sorted({label for label in labels if label})
-                ),
+                lambda labels: ", ".join(sorted({label for label in labels if label})),
             ),
         )
         .reset_index()
@@ -1516,31 +1355,15 @@ def list_recipient_countries():
         ]
     ].copy()
 
-    countries["recipient_country_code"] = (
-        countries["recipient_country_code"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    countries["recipient_country_name"] = (
-        countries["recipient_country_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    countries["recipient_country_code"] = countries["recipient_country_code"].fillna("").astype(str).str.strip().str.upper()
+    countries["recipient_country_name"] = countries["recipient_country_name"].fillna("").astype(str).str.strip()
 
-    countries["display_name"] = countries[
-        "recipient_country_name"
-    ].where(
+    countries["display_name"] = countries["recipient_country_name"].where(
         countries["recipient_country_name"] != "",
         countries["recipient_country_code"],
     )
 
-    countries = countries[
-        (countries["recipient_country_code"] != "")
-        | (countries["display_name"] != "")
-    ]
+    countries = countries[(countries["recipient_country_code"] != "") | (countries["display_name"] != "")]
 
     if countries.empty:
         return h.empty_result(
@@ -1570,10 +1393,7 @@ def list_recipient_countries():
         ],
     )
 
-    summary = (
-        f"Found {len(counts)} recipient country value(s) "
-        f"across {countries['activity_identifier'].nunique()} activities."
-    )
+    summary = f"Found {len(counts)} recipient country value(s) across {countries['activity_identifier'].nunique()} activities."
 
     return h.text_result(
         summary,
@@ -1583,6 +1403,7 @@ def list_recipient_countries():
         total=len(counts),
         shown=len(counts),
     )
+
 
 class _Criterion:
     """One resolved filter criterion of `filter_activities`.
@@ -1644,10 +1465,7 @@ def _resolve_country(country: str, activities: pd.DataFrame) -> _Criterion:
     def _pick(mask: pd.Series, kind: str) -> bool:
         if not mask.any():
             return False
-        labels = sorted({
-            f"{code} ({name})" if name else code
-            for code, name in zip(codes[mask], names[mask])
-        })
+        labels = sorted({f"{code} ({name})" if name else code for code, name in zip(codes[mask], names[mask])})
         criterion.ids = set(ids[mask])
         criterion.match_kind = kind
         criterion.resolved = ", ".join(labels)
@@ -1663,8 +1481,7 @@ def _resolve_country(country: str, activities: pd.DataFrame) -> _Criterion:
     if alias_code and _pick(codes == alias_code, "translated name"):
         return criterion
     if len(needle) >= 3 and _pick(
-        folded_names.str.contains(needle, regex=False)
-        & (folded_names != ""),
+        folded_names.str.contains(needle, regex=False) & (folded_names != ""),
         "name substring",
     ):
         return criterion
@@ -1678,15 +1495,9 @@ def _resolve_country(country: str, activities: pd.DataFrame) -> _Criterion:
     if close and _pick(folded_names.isin(close), "similar name"):
         return criterion
 
-    available = _available_preview(
-        f"{code} ({name})" if name else code
-        for code, name in zip(codes, names)
-    )
+    available = _available_preview(f"{code} ({name})" if name else code for code, name in zip(codes, names))
     hint = f" (ISO code {alias_code})" if alias_code else ""
-    criterion.error = (
-        f"No recipient country matches '{country}'{hint}. "
-        f"Available recipient countries: {available}"
-    )
+    criterion.error = f"No recipient country matches '{country}'{hint}. Available recipient countries: {available}"
     return criterion
 
 
@@ -1694,9 +1505,7 @@ def _resolve_sector(sector: str) -> _Criterion:
     """Resolve a sector code or name: exact code, exact name, substring."""
     criterion = _Criterion("sector", "sector", sector)
     sectors = _named_sectors(sectors_df())
-    sectors = sectors[
-        (sectors["sector_code"] != "") | (sectors["sector_name"] != "")
-    ]
+    sectors = sectors[(sectors["sector_code"] != "") | (sectors["sector_name"] != "")]
     if sectors.empty:
         criterion.error = "No sectors were found in the loaded IATI data."
         return criterion
@@ -1715,33 +1524,16 @@ def _resolve_sector(sector: str) -> _Criterion:
         match_kind = "name substring"
 
     if matches.empty:
-        criterion.error = (
-            f"No sector matches '{sector}'. Available sectors: "
-            + _available_preview(
-                name or code
-                for name, code in zip(
-                    sectors["sector_name"], sectors["sector_code"]
-                )
-            )
+        criterion.error = f"No sector matches '{sector}'. Available sectors: " + _available_preview(
+            name or code for name, code in zip(sectors["sector_name"], sectors["sector_code"])
         )
         return criterion
 
     matched = matches.copy()
-    matched["display"] = matched["sector_name"].where(
-        matched["sector_name"] != "", matched["sector_code"]
-    )
+    matched["display"] = matched["sector_name"].where(matched["sector_name"] != "", matched["sector_code"])
     has_both = (matched["sector_code"] != "") & (matched["sector_name"] != "")
-    matched.loc[has_both, "display"] = (
-        matched.loc[has_both, "sector_name"]
-        + " ("
-        + matched.loc[has_both, "sector_code"]
-        + ")"
-    )
-    details = (
-        matched.groupby("activity_identifier")["display"]
-        .apply(lambda values: ", ".join(sorted(set(values))))
-        .to_dict()
-    )
+    matched.loc[has_both, "display"] = matched.loc[has_both, "sector_name"] + " (" + matched.loc[has_both, "sector_code"] + ")"
+    details = matched.groupby("activity_identifier")["display"].apply(lambda values: ", ".join(sorted(set(values)))).to_dict()
     criterion.ids = set(details)
     criterion.details = details
     criterion.match_kind = match_kind
@@ -1756,18 +1548,13 @@ def _resolve_organisation(organisation: str) -> _Criterion:
     with close similarity (published names are often misspelled, and
     substring alone would let a longer name shadow the intended one).
     """
-    criterion = _Criterion(
-        "participating_org", "participating organisation", organisation
-    )
+    criterion = _Criterion("participating_org", "participating organisation", organisation)
     orgs = participating_orgs_df().copy()
     for column in ("activity_identifier", "org_ref", "org_name", "role"):
         orgs[column] = _stripped(orgs[column])
     orgs = orgs[(orgs["org_ref"] != "") | (orgs["org_name"] != "")]
     if orgs.empty:
-        criterion.error = (
-            "No participating organisations were found in the loaded "
-            "IATI data."
-        )
+        criterion.error = "No participating organisations were found in the loaded IATI data."
         return criterion
 
     needle = _fold_text(organisation)
@@ -1781,49 +1568,28 @@ def _resolve_organisation(organisation: str) -> _Criterion:
         match_kind = "exact name"
     if matches.empty:
         substring_hits = names.str.contains(needle, regex=False)
-        close_names = difflib.get_close_matches(
-            needle, names.unique().tolist(), n=5, cutoff=0.85
-        )
+        close_names = difflib.get_close_matches(needle, names.unique().tolist(), n=5, cutoff=0.85)
         matches = orgs[substring_hits | names.isin(close_names)]
         match_kind = "name substring or similar name"
 
     if matches.empty:
         criterion.error = (
             f"No participating organisation matches '{organisation}'. "
-            "Available organisations: "
-            + _available_preview(
-                name or ref
-                for name, ref in zip(orgs["org_name"], orgs["org_ref"])
-            )
+            "Available organisations: " + _available_preview(name or ref for name, ref in zip(orgs["org_name"], orgs["org_ref"]))
         )
         return criterion
 
     matched = matches.copy()
-    matched["display"] = matched["org_name"].where(
-        matched["org_name"] != "", matched["org_ref"]
-    )
+    matched["display"] = matched["org_name"].where(matched["org_name"] != "", matched["org_ref"])
     has_role = matched["role"] != ""
     matched.loc[has_role, "display"] = (
-        matched.loc[has_role, "display"]
-        + " (role: "
-        + matched.loc[has_role, "role"].map(h.organisation_role_label)
-        + ")"
+        matched.loc[has_role, "display"] + " (role: " + matched.loc[has_role, "role"].map(h.organisation_role_label) + ")"
     )
-    details = (
-        matched.groupby("activity_identifier")["display"]
-        .apply(lambda values: ", ".join(sorted(set(values))))
-        .to_dict()
-    )
+    details = matched.groupby("activity_identifier")["display"].apply(lambda values: ", ".join(sorted(set(values)))).to_dict()
     criterion.ids = set(details)
     criterion.details = details
     criterion.match_kind = match_kind
-    criterion.resolved = ", ".join(
-        sorted(set(
-            matched["org_name"].where(
-                matched["org_name"] != "", matched["org_ref"]
-            )
-        ))
-    )
+    criterion.resolved = ", ".join(sorted(set(matched["org_name"].where(matched["org_name"] != "", matched["org_ref"]))))
     return criterion
 
 
@@ -1836,31 +1602,22 @@ def _resolve_status(status: str, activities: pd.DataFrame) -> _Criterion:
 
     present = sorted({code for code in codes.unique() if code})
     labels = {code: h.activity_status_label(code) for code in present}
-    selected = [
-        code for code in present
-        if _fold_text(code) == needle or _fold_text(labels[code]) == needle
-    ]
+    selected = [code for code in present if _fold_text(code) == needle or _fold_text(labels[code]) == needle]
     match_kind = "exact code or label"
     if not selected:
-        selected = [
-            code for code in present
-            if needle and needle in _fold_text(labels[code])
-        ]
+        selected = [code for code in present if needle and needle in _fold_text(labels[code])]
         match_kind = "label substring"
 
     if not selected:
-        criterion.error = (
-            f"No activity status matches '{status}'. Available statuses: "
-            + "; ".join(f"{code} ({labels[code]})" for code in present)
+        criterion.error = f"No activity status matches '{status}'. Available statuses: " + "; ".join(
+            f"{code} ({labels[code]})" for code in present
         )
         return criterion
 
     mask = codes.isin(selected)
     criterion.ids = set(ids[mask])
     criterion.match_kind = match_kind
-    criterion.resolved = ", ".join(
-        f"{code} ({labels[code]})" for code in selected
-    )
+    criterion.resolved = ", ".join(f"{code} ({labels[code]})" for code in selected)
     return criterion
 
 
@@ -1871,9 +1628,7 @@ def _resolve_text(text: str, activities: pd.DataFrame) -> _Criterion:
     ids = _stripped(activities["activity_identifier"])
     mask = _folded(activities["title"]).str.contains(needle, regex=False)
     if "description" in activities.columns:
-        mask = mask | _folded(activities["description"]).str.contains(
-            needle, regex=False
-        )
+        mask = mask | _folded(activities["description"]).str.contains(needle, regex=False)
     criterion.ids = set(ids[mask])
     criterion.match_kind = "title or description substring"
     return criterion
@@ -1921,14 +1676,10 @@ def _filter_table(shown: pd.DataFrame, criteria: list[_Criterion]):
             ("recipient_country_name", "Recipient country"),
         ]
     if "sector" in by_key:
-        shown["matched_sectors"] = shown["activity_identifier"].map(
-            by_key["sector"].details
-        )
+        shown["matched_sectors"] = shown["activity_identifier"].map(by_key["sector"].details)
         columns.append(("matched_sectors", "Sector"))
     if "participating_org" in by_key:
-        shown["matched_orgs"] = shown["activity_identifier"].map(
-            by_key["participating_org"].details
-        )
+        shown["matched_orgs"] = shown["activity_identifier"].map(by_key["participating_org"].details)
         columns.append(("matched_orgs", "Participating organisation"))
 
     rows = shown[[column for column, _ in columns]].fillna("")
@@ -1947,16 +1698,10 @@ def _filter_notes(criteria: list[_Criterion]) -> list[str]:
             continue
         note = f"Matched by {criterion.match_kind}"
         if criterion.resolved:
-            note += (
-                f": {criterion.label} '{criterion.value}' resolved to "
-                f"{criterion.resolved}"
-            )
+            note += f": {criterion.label} '{criterion.value}' resolved to {criterion.resolved}"
         notes.append(note + ".")
     if "participating_org" in {criterion.key for criterion in criteria}:
-        notes.append(
-            "The matched organisation names, as published, are in the "
-            "table."
-        )
+        notes.append("The matched organisation names, as published, are in the table.")
     return notes
 
 
@@ -1972,11 +1717,7 @@ class _Scope:
     def __init__(self, criteria: list[_Criterion]):
         self.criteria = criteria
         self.error = next((c.error for c in criteria if c.error), None)
-        self.ids: set[str] | None = (
-            set.intersection(*(c.ids for c in criteria))
-            if criteria and not self.error
-            else None
-        )
+        self.ids: set[str] | None = set.intersection(*(c.ids for c in criteria)) if criteria and not self.error else None
 
     def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Keep the rows of `frame` whose activity is inside the scope."""
@@ -1989,9 +1730,7 @@ class _Scope:
         """Suffix for summaries, e.g. " for recipient country 'AR'"."""
         if not self.criteria:
             return ""
-        return " " + " and ".join(
-            f"for {c.label} '{c.value}'" for c in self.criteria
-        )
+        return " " + " and ".join(f"for {c.label} '{c.value}'" for c in self.criteria)
 
     @property
     def notes(self) -> str:
@@ -2053,6 +1792,7 @@ def filter_activities(
     `tool_name` lets the single-criterion wrappers keep their own glossary
     terms in the response (see `TOOL_GLOSSARY_TERMS`).
     """
+
     def _clean(value) -> str:
         return "" if value is None else str(value).strip()
 
@@ -2064,8 +1804,7 @@ def filter_activities(
 
     if not any((country, sector, organisation, status, text)):
         return h.empty_result(
-            "At least one filter is required: country, sector, "
-            "organisation, status or text.",
+            "At least one filter is required: country, sector, organisation, status or text.",
             source_url=xml_source(),
         )
 
@@ -2075,14 +1814,8 @@ def filter_activities(
             source_url=xml_source(),
         )
 
-    activities = (
-        activities_df()
-        .drop_duplicates(subset=["activity_identifier"])
-        .copy()
-    )
-    activities["activity_identifier"] = _stripped(
-        activities["activity_identifier"]
-    )
+    activities = activities_df().drop_duplicates(subset=["activity_identifier"]).copy()
+    activities["activity_identifier"] = _stripped(activities["activity_identifier"])
 
     criteria = _resolve_criteria(
         activities,
@@ -2100,17 +1833,13 @@ def filter_activities(
     phrases = {
         "recipient_country": f"for recipient country '{country}'",
         "sector": f"for sector '{sector}'",
-        "participating_org": (
-            f"with participating organisation '{organisation}'"
-        ),
+        "participating_org": (f"with participating organisation '{organisation}'"),
         "activity_status": f"with activity status '{status}'",
         "text_contains": f"with '{text}' in the title or description",
     }
     description = " and ".join(phrases[c.key] for c in criteria)
 
-    all_matches = activities[
-        activities["activity_identifier"].isin(selected_ids)
-    ]
+    all_matches = activities[activities["activity_identifier"].isin(selected_ids)]
     total = len(all_matches)
     if all_matches.empty:
         return h.empty_result(
@@ -2120,10 +1849,7 @@ def filter_activities(
 
     shown = all_matches.head(limit).copy()
     table = _filter_table(shown, criteria)
-    summary = " ".join(
-        [f"Found {total} IATI activity(ies) {description}."]
-        + _filter_notes(criteria)
-    )
+    summary = " ".join([f"Found {total} IATI activity(ies) {description}."] + _filter_notes(criteria))
 
     return h.text_result(
         summary,
@@ -2226,10 +1952,7 @@ def list_sectors(
         sectors["sector_code"],
     )
 
-    sectors = sectors[
-        (sectors["sector_code"] != "")
-        | (sectors["display_name"] != "")
-    ]
+    sectors = sectors[(sectors["sector_code"] != "") | (sectors["display_name"] != "")]
 
     if sectors.empty:
         return h.empty_result(
@@ -2312,9 +2035,7 @@ def transaction_totals_by_year(
             source_url=xml_source(),
         )
 
-    scope = _resolve_scope(
-        country=country, sector=sector, organisation=organisation, status=status
-    )
+    scope = _resolve_scope(country=country, sector=sector, organisation=organisation, status=status)
     if scope.error:
         return h.empty_result(scope.error, source_url=xml_source())
 
@@ -2327,14 +2048,10 @@ def transaction_totals_by_year(
         )
 
     transactions["transaction_type"] = transactions["transaction_type"].fillna("")
-    transactions["transaction_date"] = (
-        transactions["transaction_date"].fillna("").astype(str).str.strip()
-    )
+    transactions["transaction_date"] = transactions["transaction_date"].fillna("").astype(str).str.strip()
 
     allowed_types = {"2", "3"}
-    transactions = transactions[
-        transactions["transaction_type"].isin(allowed_types)
-    ].copy()
+    transactions = transactions[transactions["transaction_type"].isin(allowed_types)].copy()
 
     parsed_dates = pd.to_datetime(
         transactions["transaction_date"],
@@ -2358,16 +2075,13 @@ def transaction_totals_by_year(
 
     if transactions.empty:
         return h.empty_result(
-            "No transaction totals were found for the requested year range"
-            f"{scope.description}.",
+            f"No transaction totals were found for the requested year range{scope.description}.",
             source_url=xml_source(),
         )
 
     activities = activities_df()[["activity_identifier", "default_currency"]].copy()
     activities = activities.drop_duplicates(subset=["activity_identifier"])
-    activities["default_currency"] = (
-        activities["default_currency"].fillna("").astype(str).str.strip()
-    )
+    activities["default_currency"] = activities["default_currency"].fillna("").astype(str).str.strip()
 
     transactions = transactions.merge(
         activities,
@@ -2421,10 +2135,7 @@ def transaction_totals_by_year(
         },
     )
 
-    summary = (
-        f"Found {len(rows)} annual transaction total(s){scope.description}. "
-        f"{scope.notes}"
-    ).strip()
+    summary = (f"Found {len(rows)} annual transaction total(s){scope.description}. {scope.notes}").strip()
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -2471,24 +2182,9 @@ def transaction_totals_by_organisation(limit: int = 50):
         ]
     ].copy()
     activities = activities.drop_duplicates(subset=["activity_identifier"])
-    activities["reporting_org_ref"] = (
-        activities["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["reporting_org_name"] = (
-        activities["reporting_org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    activities["default_currency"] = (
-        activities["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    activities["reporting_org_ref"] = activities["reporting_org_ref"].fillna("").astype(str).str.strip()
+    activities["reporting_org_name"] = activities["reporting_org_name"].fillna("").astype(str).str.strip()
+    activities["default_currency"] = activities["default_currency"].fillna("").astype(str).str.strip()
 
     transactions = transactions_df().copy()
     if transactions.empty:
@@ -2498,9 +2194,7 @@ def transaction_totals_by_organisation(limit: int = 50):
         )
 
     allowed_types = {"2", "3"}
-    transactions = transactions[
-        transactions["transaction_type"].isin(allowed_types)
-    ].copy()
+    transactions = transactions[transactions["transaction_type"].isin(allowed_types)].copy()
     transactions["value"] = pd.to_numeric(transactions["value"], errors="coerce")
     transactions = transactions[pd.notna(transactions["value"])].copy()
 
@@ -2516,24 +2210,9 @@ def transaction_totals_by_organisation(limit: int = 50):
         how="left",
     )
 
-    transactions["reporting_org_ref"] = (
-        transactions["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    transactions["reporting_org_name"] = (
-        transactions["reporting_org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    transactions["default_currency"] = (
-        transactions["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["reporting_org_ref"] = transactions["reporting_org_ref"].fillna("").astype(str).str.strip()
+    transactions["reporting_org_name"] = transactions["reporting_org_name"].fillna("").astype(str).str.strip()
+    transactions["default_currency"] = transactions["default_currency"].fillna("").astype(str).str.strip()
 
     transactions["display_org_name"] = transactions["reporting_org_name"].where(
         transactions["reporting_org_name"] != "",
@@ -2544,12 +2223,7 @@ def transaction_totals_by_organisation(limit: int = 50):
         "Unknown reporting organisation",
     )
 
-    transactions["currency"] = (
-        transactions["currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["currency"] = transactions["currency"].fillna("").astype(str).str.strip()
     transactions["currency"] = transactions["currency"].where(
         transactions["currency"] != "",
         transactions["default_currency"],
@@ -2636,21 +2310,14 @@ def _sector_allocations(
         "sector_name",
         "vocabulary",
     ]:
-        sectors[column] = (
-            sectors[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        sectors[column] = sectors[column].fillna("").astype(str).str.strip()
     sectors["percentage"] = pd.to_numeric(
         sectors["percentage"],
         errors="coerce",
     )
     if vocabulary is not None:
         selected_vocabulary = str(vocabulary).strip()
-        sectors = sectors[
-            sectors["vocabulary"] == selected_vocabulary
-        ].copy()
+        sectors = sectors[sectors["vocabulary"] == selected_vocabulary].copy()
     allocation_rows = []
     for (activity_identifier, vocabulary_code), group in sectors.groupby(
         ["activity_identifier", "vocabulary"],
@@ -2660,39 +2327,41 @@ def _sector_allocations(
         group = group.copy()
         if len(group) == 1 and group["percentage"].isna().all():
             group["percentage"] = 100.0
-        valid = group[
-            group["percentage"].notna()
-            & group["percentage"].between(0, 100)
-            & (group["percentage"] > 0)
-        ].copy()
+        valid = group[group["percentage"].notna() & group["percentage"].between(0, 100) & (group["percentage"] > 0)].copy()
         valid_total = float(valid["percentage"].sum())
         if valid_total > 100.000001:
-            allocation_rows.append({
-                "activity_identifier": activity_identifier,
-                "vocabulary": vocabulary_code or "Unknown",
-                "sector_code": "",
-                "sector_name": "Unallocated sector",
-                "allocation_percentage": 100.0,
-            })
+            allocation_rows.append(
+                {
+                    "activity_identifier": activity_identifier,
+                    "vocabulary": vocabulary_code or "Unknown",
+                    "sector_code": "",
+                    "sector_name": "Unallocated sector",
+                    "allocation_percentage": 100.0,
+                }
+            )
             continue
         for row in valid.to_dict("records"):
             sector_name = row["sector_name"] or row["sector_code"]
-            allocation_rows.append({
-                "activity_identifier": activity_identifier,
-                "vocabulary": vocabulary_code or "Unknown",
-                "sector_code": row["sector_code"],
-                "sector_name": sector_name or "Unknown sector",
-                "allocation_percentage": float(row["percentage"]),
-            })
+            allocation_rows.append(
+                {
+                    "activity_identifier": activity_identifier,
+                    "vocabulary": vocabulary_code or "Unknown",
+                    "sector_code": row["sector_code"],
+                    "sector_name": sector_name or "Unknown sector",
+                    "allocation_percentage": float(row["percentage"]),
+                }
+            )
         remainder = 100.0 - valid_total
         if remainder > 0.000001:
-            allocation_rows.append({
-                "activity_identifier": activity_identifier,
-                "vocabulary": vocabulary_code or "Unknown",
-                "sector_code": "",
-                "sector_name": "Unallocated sector",
-                "allocation_percentage": remainder,
-            })
+            allocation_rows.append(
+                {
+                    "activity_identifier": activity_identifier,
+                    "vocabulary": vocabulary_code or "Unknown",
+                    "sector_code": "",
+                    "sector_name": "Unallocated sector",
+                    "allocation_percentage": remainder,
+                }
+            )
     return pd.DataFrame(
         allocation_rows,
         columns=[
@@ -2731,8 +2400,7 @@ def transaction_totals_by_country(
     transaction_type_code = _transaction_type_code(transaction_type)
     if transaction_type_code is None:
         return h.empty_result(
-            "Unsupported transaction type. Use commitment, disbursement, "
-            "2 or 3.",
+            "Unsupported transaction type. Use commitment, disbursement, 2 or 3.",
             source_url=xml_source(),
         )
 
@@ -2759,12 +2427,7 @@ def transaction_totals_by_country(
         "recipient_country_name",
         "default_currency",
     ]:
-        activities[column] = (
-            activities[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        activities[column] = activities[column].fillna("").astype(str).str.strip()
 
     scope = _resolve_scope(sector=sector, organisation=organisation, status=status)
     if scope.error:
@@ -2777,22 +2440,15 @@ def transaction_totals_by_country(
             source_url=xml_source(),
         )
 
-    transactions["transaction_type"] = (
-        transactions["transaction_type"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["transaction_type"] = transactions["transaction_type"].fillna("").astype(str).str.strip()
     transactions["value"] = pd.to_numeric(transactions["value"], errors="coerce")
     transactions = transactions[
-        (transactions["transaction_type"] == transaction_type_code)
-        & transactions["value"].notna()
+        (transactions["transaction_type"] == transaction_type_code) & transactions["value"].notna()
     ].copy()
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data"
-            f"{scope.description}.",
+            f"No matching transactions were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -2802,33 +2458,10 @@ def transaction_totals_by_country(
         how="left",
     )
 
-    transactions["recipient_country_code"] = (
-        transactions["recipient_country_code"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    transactions["recipient_country_name"] = (
-        transactions["recipient_country_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    transactions["default_currency"] = (
-        transactions["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    transactions["currency"] = (
-        transactions["currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    transactions["recipient_country_code"] = transactions["recipient_country_code"].fillna("").astype(str).str.strip().str.upper()
+    transactions["recipient_country_name"] = transactions["recipient_country_name"].fillna("").astype(str).str.strip()
+    transactions["default_currency"] = transactions["default_currency"].fillna("").astype(str).str.strip().str.upper()
+    transactions["currency"] = transactions["currency"].fillna("").astype(str).str.strip().str.upper()
     transactions["currency"] = transactions["currency"].where(
         transactions["currency"] != "",
         transactions["default_currency"],
@@ -2849,15 +2482,11 @@ def transaction_totals_by_country(
             source_url=xml_source(),
         )
 
-    transactions["display_country_name"] = transactions[
-        "recipient_country_name"
-    ].where(
+    transactions["display_country_name"] = transactions["recipient_country_name"].where(
         transactions["recipient_country_name"] != "",
         transactions["recipient_country_code"],
     )
-    transactions["display_country_name"] = transactions[
-        "display_country_name"
-    ].where(
+    transactions["display_country_name"] = transactions["display_country_name"].where(
         transactions["display_country_name"] != "",
         "Unknown recipient country",
     )
@@ -2913,10 +2542,7 @@ def transaction_totals_by_country(
         },
     )
 
-    summary = (
-        f"Found {total} country transaction total(s){scope.description}. "
-        f"{scope.notes}"
-    ).strip()
+    summary = (f"Found {total} country transaction total(s){scope.description}. {scope.notes}").strip()
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -2959,8 +2585,7 @@ def transaction_totals_by_sector(
     transaction_type_code = _transaction_type_code(transaction_type)
     if transaction_type_code is None:
         return h.empty_result(
-            "Unsupported transaction type. Use commitment, disbursement, "
-            "2 or 3.",
+            "Unsupported transaction type. Use commitment, disbursement, 2 or 3.",
             source_url=xml_source(),
         )
 
@@ -2978,47 +2603,28 @@ def transaction_totals_by_sector(
         return h.empty_result(scope.error, source_url=xml_source())
 
     transactions = scope.apply(transactions_df()).copy()
-    transactions["transaction_type"] = (
-        transactions["transaction_type"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["transaction_type"] = transactions["transaction_type"].fillna("").astype(str).str.strip()
     transactions["value"] = pd.to_numeric(transactions["value"], errors="coerce")
     transactions = transactions[
-        (transactions["transaction_type"] == transaction_type_code)
-        & transactions["value"].notna()
+        (transactions["transaction_type"] == transaction_type_code) & transactions["value"].notna()
     ].copy()
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data"
-            f"{scope.description}.",
+            f"No matching transactions were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
     activities = activities_df()[["activity_identifier", "default_currency"]].copy()
     activities = activities.drop_duplicates(subset=["activity_identifier"])
-    activities["default_currency"] = (
-        activities["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    activities["default_currency"] = activities["default_currency"].fillna("").astype(str).str.strip().str.upper()
     transactions = transactions.merge(
         activities,
         on="activity_identifier",
         how="left",
     )
 
-    transactions["currency"] = (
-        transactions["currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    transactions["currency"] = transactions["currency"].fillna("").astype(str).str.strip().str.upper()
     transactions["currency"] = transactions["currency"].where(
         transactions["currency"] != "",
         transactions["default_currency"],
@@ -3043,41 +2649,27 @@ def transaction_totals_by_sector(
         _named_sectors(sectors_df()),
         vocabulary=vocabulary,
     )
-    transaction_activity_ids = set(
-        transactions["activity_identifier"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
+    transaction_activity_ids = set(transactions["activity_identifier"].dropna().astype(str).str.strip())
 
-    allocated_activity_ids = set(
-        sectors["activity_identifier"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
+    allocated_activity_ids = set(sectors["activity_identifier"].dropna().astype(str).str.strip())
 
-    missing_activity_ids = sorted(
-        transaction_activity_ids - allocated_activity_ids
-    )
+    missing_activity_ids = sorted(transaction_activity_ids - allocated_activity_ids)
 
     if missing_activity_ids:
-        fallback_vocabulary = (
-            str(vocabulary).strip()
-            if vocabulary is not None
-            else "Unknown"
-        )
+        fallback_vocabulary = str(vocabulary).strip() if vocabulary is not None else "Unknown"
 
-        missing_allocations = pd.DataFrame([
-            {
-                "activity_identifier": activity_identifier,
-                "vocabulary": fallback_vocabulary,
-                "sector_code": "",
-                "sector_name": "Unallocated sector",
-                "allocation_percentage": 100.0,
-            }
-            for activity_identifier in missing_activity_ids
-        ])
+        missing_allocations = pd.DataFrame(
+            [
+                {
+                    "activity_identifier": activity_identifier,
+                    "vocabulary": fallback_vocabulary,
+                    "sector_code": "",
+                    "sector_name": "Unallocated sector",
+                    "allocation_percentage": 100.0,
+                }
+                for activity_identifier in missing_activity_ids
+            ]
+        )
 
         sectors = pd.concat(
             [sectors, missing_allocations],
@@ -3099,9 +2691,7 @@ def transaction_totals_by_sector(
         errors="coerce",
     )
     merged = merged[merged["allocation_percentage"].notna()].copy()
-    merged["allocated_value"] = (
-        merged["value"] * merged["allocation_percentage"] / 100
-    )
+    merged["allocated_value"] = merged["value"] * merged["allocation_percentage"] / 100
 
     grouped = (
         merged.groupby(
@@ -3123,14 +2713,11 @@ def transaction_totals_by_sector(
         kind="mergesort",
     )
     total = len(grouped)
-    shown = (
-        grouped.groupby(
-            ["vocabulary", "currency"],
-            sort=False,
-            group_keys=False,
-        )
-        .head(limit)
-    )
+    shown = grouped.groupby(
+        ["vocabulary", "currency"],
+        sort=False,
+        group_keys=False,
+    ).head(limit)
 
     rows = []
     for _, row in shown.iterrows():
@@ -3211,8 +2798,7 @@ def top_activities_by_amount(
     transaction_type_code = _transaction_type_code(transaction_type)
     if transaction_type_code is None:
         return h.empty_result(
-            "Unsupported transaction type. Use commitment, disbursement, "
-            "2 or 3.",
+            "Unsupported transaction type. Use commitment, disbursement, 2 or 3.",
             source_url=xml_source(),
         )
 
@@ -3225,29 +2811,20 @@ def top_activities_by_amount(
                 source_url=xml_source(),
             )
 
-    scope = _resolve_scope(
-        country=country, sector=sector, organisation=organisation, status=status
-    )
+    scope = _resolve_scope(country=country, sector=sector, organisation=organisation, status=status)
     if scope.error:
         return h.empty_result(scope.error, source_url=xml_source())
 
     transactions = scope.apply(transactions_df()).copy()
-    transactions["transaction_type"] = (
-        transactions["transaction_type"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["transaction_type"] = transactions["transaction_type"].fillna("").astype(str).str.strip()
     transactions["value"] = pd.to_numeric(transactions["value"], errors="coerce")
     transactions = transactions[
-        (transactions["transaction_type"] == transaction_type_code)
-        & transactions["value"].notna()
+        (transactions["transaction_type"] == transaction_type_code) & transactions["value"].notna()
     ].copy()
 
     if transactions.empty:
         return h.empty_result(
-            "No matching transactions were found in the loaded IATI data"
-            f"{scope.description}.",
+            f"No matching transactions were found in the loaded IATI data{scope.description}.",
             source_url=xml_source(),
         )
 
@@ -3260,18 +2837,9 @@ def top_activities_by_amount(
         "recipient_country_name",
         "default_currency",
     ]
-    activities = (
-        activities_df()[activity_columns]
-        .drop_duplicates(subset=["activity_identifier"])
-        .copy()
-    )
+    activities = activities_df()[activity_columns].drop_duplicates(subset=["activity_identifier"]).copy()
     for column in activity_columns:
-        activities[column] = (
-            activities[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
+        activities[column] = activities[column].fillna("").astype(str).str.strip()
 
     transactions = transactions.merge(
         activities,
@@ -3279,20 +2847,8 @@ def top_activities_by_amount(
         how="left",
     )
 
-    transactions["currency"] = (
-        transactions["currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-    transactions["default_currency"] = (
-        transactions["default_currency"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    transactions["currency"] = transactions["currency"].fillna("").astype(str).str.strip().str.upper()
+    transactions["default_currency"] = transactions["default_currency"].fillna("").astype(str).str.strip().str.upper()
     transactions["currency"] = transactions["currency"].where(
         transactions["currency"] != "",
         transactions["default_currency"],
@@ -3313,18 +2869,8 @@ def top_activities_by_amount(
             source_url=xml_source(),
         )
 
-    transactions["reporting_org_name"] = (
-        transactions["reporting_org_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    transactions["reporting_org_ref"] = (
-        transactions["reporting_org_ref"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    transactions["reporting_org_name"] = transactions["reporting_org_name"].fillna("").astype(str).str.strip()
+    transactions["reporting_org_ref"] = transactions["reporting_org_ref"].fillna("").astype(str).str.strip()
     transactions["display_org_name"] = transactions["reporting_org_name"].where(
         transactions["reporting_org_name"] != "",
         transactions["reporting_org_ref"],
@@ -3334,19 +2880,8 @@ def top_activities_by_amount(
         "Unknown reporting organisation",
     )
 
-    transactions["recipient_country_name"] = (
-        transactions["recipient_country_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-    transactions["recipient_country_code"] = (
-        transactions["recipient_country_code"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    transactions["recipient_country_name"] = transactions["recipient_country_name"].fillna("").astype(str).str.strip()
+    transactions["recipient_country_code"] = transactions["recipient_country_code"].fillna("").astype(str).str.strip().str.upper()
     transactions["display_country"] = transactions["recipient_country_name"].where(
         transactions["recipient_country_name"] != "",
         transactions["recipient_country_code"],
@@ -3416,18 +2951,11 @@ def top_activities_by_amount(
         filters["currency"] = selected_currency
     filters.update(scope.filters)
 
-    summary = (
-        f"Found {total_results} top activity amount(s){scope.description}. "
-        f"{scope.notes}"
-    ).strip()
+    summary = (f"Found {total_results} top activity amount(s){scope.description}. {scope.notes}").strip()
     if transaction_type_code == "2":
-        interpretation = (
-            "Commitments do not necessarily represent payments made."
-        )
+        interpretation = "Commitments do not necessarily represent payments made."
     else:
-        interpretation = (
-            "Disbursements represent funds transferred to finance an activity."
-        )
+        interpretation = "Disbursements represent funds transferred to finance an activity."
     return h.text_result(
         f"{summary}\n\n{interpretation}",
         source_url=xml_source(),
@@ -3443,6 +2971,9 @@ def top_activities_by_amount(
 
 def activity_transactions(
     iati_identifier: str,
+    transaction_type: str | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
     limit: int = 50,
 ):
     """List transactions associated with one IATI activity."""
@@ -3462,35 +2993,48 @@ def activity_transactions(
         )
 
     activities = activities_df()
-    activity = activities[
-        activities["activity_identifier"] == iati_identifier
-    ]
+    activity = activities[activities["activity_identifier"] == iati_identifier]
 
     if activity.empty:
         return h.empty_result(
-            f"No IATI activity found with identifier "
-            f"'{iati_identifier}'.",
+            f"No IATI activity found with identifier '{iati_identifier}'.",
             source_url=xml_source(),
         )
 
     transactions = transactions_df()
-    matches = transactions[
-        transactions["activity_identifier"] == iati_identifier
-    ].copy()
+    matches = transactions[transactions["activity_identifier"] == iati_identifier].copy()
+
+    if year_from is not None and year_to is not None and year_from > year_to:
+        return h.empty_result(
+            "year_from cannot be greater than year_to.",
+            source_url=xml_source(),
+        )
+    if transaction_type is not None:
+        code = _transaction_type_code(transaction_type)
+        if code is None and str(transaction_type).strip() == "4":
+            code = "4"
+        if code is None and str(transaction_type).strip().casefold() in {
+            "expenditure",
+            "expenditures",
+        }:
+            code = "4"
+        if code is None:
+            return h.empty_result("Unsupported transaction type.", source_url=xml_source())
+        matches = matches[_stripped(matches["transaction_type"]) == code]
+    parsed_dates = pd.to_datetime(matches["transaction_date"], errors="coerce", format="mixed")
+    if year_from is not None:
+        matches = matches[parsed_dates.dt.year >= year_from]
+        parsed_dates = parsed_dates.reindex(matches.index)
+    if year_to is not None:
+        matches = matches[parsed_dates.dt.year <= year_to]
 
     if matches.empty:
         return h.empty_result(
-            f"No transactions were found for IATI activity "
-            f"'{iati_identifier}'.",
+            f"No transactions were found for IATI activity '{iati_identifier}'.",
             source_url=xml_source(),
         )
 
-    matches["transaction_date"] = (
-        matches["transaction_date"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    matches["transaction_date"] = matches["transaction_date"].fillna("").astype(str).str.strip()
 
     matches = matches.sort_values(
         ["transaction_date", "transaction_type"],
@@ -3500,15 +3044,19 @@ def activity_transactions(
     total = len(matches)
     shown = matches.head(limit).copy()
 
-    rows = shown[
-        [
-            "transaction_date",
-            "transaction_type",
-            "value",
-            "currency",
-            "description",
-        ]
-    ].copy()
+    columns = [
+        "transaction_date",
+        "transaction_type",
+        "value",
+        "currency",
+        "provider_org_name",
+        "receiver_org_name",
+        "description",
+    ]
+    for column in columns:
+        if column not in shown.columns:
+            shown[column] = ""
+    rows = shown[columns].copy()
 
     rows["currency"] = rows["currency"].fillna("")
     rows["description"] = rows["description"].fillna("")
@@ -3520,24 +3068,19 @@ def activity_transactions(
             ("transaction_type", "Transaction type"),
             ("value", "Value"),
             ("currency", "Currency"),
+            ("provider_org_name", "Provider organisation"),
+            ("receiver_org_name", "Receiver organisation"),
             ("description", "Description"),
         ],
         formatters={
             "transaction_type": h.transaction_type_label,
-            "value": lambda value: (
-                ""
-                if value is None or str(value) == "nan"
-                else h.format_amount(value)
-            ),
+            "value": lambda value: "" if value is None or str(value) == "nan" else h.format_amount(value),
         },
     )
 
     title = activity.iloc[0]["title"]
 
-    summary = (
-        f"Found {total} transaction(s) for {title} "
-        f"({iati_identifier})."
-    )
+    summary = f"Found {total} transaction(s) for {title} ({iati_identifier})."
 
     return h.text_result(
         summary,
@@ -3546,7 +3089,12 @@ def activity_transactions(
         tool_name=tool_name,
         total=total,
         shown=len(shown),
-        filters={"iati_identifier": iati_identifier},
+        filters={
+            "iati_identifier": iati_identifier,
+            "transaction_type": transaction_type,
+            "year_from": year_from,
+            "year_to": year_to,
+        },
         limit=limit,
         charts=_activity_transaction_charts(shown, iati_identifier),
     )
@@ -3565,29 +3113,30 @@ def _grouping_rows(group_by: str, activities: pd.DataFrame) -> tuple[pd.DataFram
     if group_by == "country":
         codes = _stripped(activities["recipient_country_code"]).str.upper()
         names = _stripped(activities["recipient_country_name"])
-        rows = pd.DataFrame({
-            "activity_identifier": ids,
-            "country_code": codes.where(codes != "", "Unknown"),
-            "recipient_country": [
-                _example_country_name(code, name) if code else "Unknown recipient country"
-                for code, name in zip(codes, names)
-            ],
-        })
+        rows = pd.DataFrame(
+            {
+                "activity_identifier": ids,
+                "country_code": codes.where(codes != "", "Unknown"),
+                "recipient_country": [
+                    _example_country_name(code, name) if code else "Unknown recipient country" for code, name in zip(codes, names)
+                ],
+            }
+        )
         return rows, ["country_code", "recipient_country"]
     if group_by == "status":
         codes = _stripped(activities["activity_status"])
-        rows = pd.DataFrame({
-            "activity_identifier": ids,
-            "status_code": codes.where(codes != "", "Unknown"),
-            "activity_status": codes.map(h.activity_status_label),
-        })
+        rows = pd.DataFrame(
+            {
+                "activity_identifier": ids,
+                "status_code": codes.where(codes != "", "Unknown"),
+                "activity_status": codes.map(h.activity_status_label),
+            }
+        )
         return rows, ["status_code", "activity_status"]
     if group_by == "sector":
         sectors = _named_sectors(sectors_df())
         sectors = sectors[sectors["activity_identifier"].isin(set(ids))].copy()
-        sectors["display_name"] = sectors["sector_name"].where(
-            sectors["sector_name"] != "", sectors["sector_code"]
-        )
+        sectors["display_name"] = sectors["sector_name"].where(sectors["sector_name"] != "", sectors["sector_code"])
         sectors = sectors[sectors["display_name"] != ""]
         return sectors, ["vocabulary", "sector_code", "display_name"]
     orgs = participating_orgs_df().copy()
@@ -3617,11 +3166,13 @@ def _group_count_charts(group_by: str, shown: pd.DataFrame, scope: _Scope) -> li
     top = shown.head(CHART_TOP_N)
     if len(top) < 2:
         return []
-    return [h.charts.bar_chart(
-        f"Activities by {group_by}{scope.description} (top {len(top)})",
-        [h.charts.short_label(name) for name in top[label_column]],
-        [("Activities", top["activities"].tolist())],
-    )]
+    return [
+        h.charts.bar_chart(
+            f"Activities by {group_by}{scope.description} (top {len(top)})",
+            [h.charts.short_label(name) for name in top[label_column]],
+            [("Activities", top["activities"].tolist())],
+        )
+    ]
 
 
 def count_activities_by(
@@ -3656,8 +3207,7 @@ def count_activities_by(
     dimension = aliases.get(dimension, dimension)
     if dimension not in GROUP_BY_DIMENSIONS:
         return h.empty_result(
-            f"Unsupported group_by '{group_by}'. Use one of: "
-            + ", ".join(GROUP_BY_DIMENSIONS) + ".",
+            f"Unsupported group_by '{group_by}'. Use one of: " + ", ".join(GROUP_BY_DIMENSIONS) + ".",
             source_url=xml_source(),
         )
     if limit < 1:
@@ -3666,9 +3216,7 @@ def count_activities_by(
             source_url=xml_source(),
         )
 
-    scope = _resolve_scope(
-        country=country, sector=sector, organisation=organisation, status=status
-    )
+    scope = _resolve_scope(country=country, sector=sector, organisation=organisation, status=status)
     if scope.error:
         return h.empty_result(scope.error, source_url=xml_source())
 
@@ -3700,14 +3248,10 @@ def count_activities_by(
         _GROUP_BY_COLUMNS[dimension] + [("activities", "Activities")],
     )
     summary = (
-        f"Counted {len(activities)} IATI activity(ies){scope.description} "
-        f"across {total} {dimension} value(s). {scope.notes}"
+        f"Counted {len(activities)} IATI activity(ies){scope.description} across {total} {dimension} value(s). {scope.notes}"
     ).strip()
     if dimension in ("sector", "organisation"):
-        summary += (
-            f" An activity can have several {dimension}s, so the counts can "
-            "add up to more than the number of activities."
-        )
+        summary += f" An activity can have several {dimension}s, so the counts can add up to more than the number of activities."
     return h.text_result(
         summary,
         source_url=xml_source(),
@@ -3752,12 +3296,14 @@ def example_values() -> dict[str, str]:
     try:
         activities = activities_df()
         ids = _stripped(activities["activity_identifier"])
-        located = pd.DataFrame({
-            "activity_identifier": ids,
-            "code": _stripped(activities["recipient_country_code"]).str.upper(),
-            "name": _stripped(activities["recipient_country_name"]),
-            "status": _stripped(activities["activity_status"]),
-        })
+        located = pd.DataFrame(
+            {
+                "activity_identifier": ids,
+                "code": _stripped(activities["recipient_country_code"]).str.upper(),
+                "name": _stripped(activities["recipient_country_name"]),
+                "status": _stripped(activities["activity_status"]),
+            }
+        )
         located = located[located["code"] != ""]
         implementing = located[located["status"] == "2"]
         if implementing.empty:
@@ -3771,8 +3317,7 @@ def example_values() -> dict[str, str]:
             )
             sectors = _named_sectors(sectors_df())
             sectors = sectors[
-                sectors["activity_identifier"].isin(in_country["activity_identifier"])
-                & (sectors["sector_name"] != "")
+                sectors["activity_identifier"].isin(in_country["activity_identifier"]) & (sectors["sector_name"] != "")
             ]
             if not sectors.empty:
                 examples["sector"] = sectors["sector_name"].value_counts().idxmax()

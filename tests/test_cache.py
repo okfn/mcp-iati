@@ -20,6 +20,7 @@ def _settings(tmp_path, ttl=604800, stale_retry=3600):
         ensure_data_dir=lambda: tmp_path,
     )
 
+
 def _write_required_csvs(folder):
     for filename in data.REQUIRED_TOOL_CSVS:
         (folder / filename).write_text("id\n1\n")
@@ -52,9 +53,7 @@ def test_fresh_xml_is_not_downloaded_again(monkeypatch, tmp_path):
     monkeypatch.setattr(
         data.urllib.request,
         "urlopen",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("unexpected download")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected download")),
     )
 
     assert data._download_xml("https://example.org/sample.xml", "sample.xml") == target

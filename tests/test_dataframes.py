@@ -244,7 +244,7 @@ def test_activities_and_transactions_can_be_joined_by_activity_identifier(tmp_pa
                     "default_currency": "EUR",
                     "recipient_country_code": "BR",
                     "recipient_country_name": "Brazil",
-                }
+                },
             ]
         ),
     )

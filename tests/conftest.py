@@ -97,21 +97,15 @@ def seed_cache(monkeypatch):
     data_mod._cache["dataframe:activities"] = _activities_df()
     data_mod._cache["dataframe:transactions"] = _transactions_df()
     data_mod._cache["dataframe:sectors"] = _sectors_df()
-    data_mod._cache["dataframe:participating_orgs"] = (
-        _participating_orgs_df()
-    )
-    data_mod._cache["dataframe:activity_dates"] = (
-        _activity_dates_df()
-    )
+    data_mod._cache["dataframe:participating_orgs"] = _participating_orgs_df()
+    data_mod._cache["dataframe:activity_dates"] = _activity_dates_df()
 
     yield SimpleNamespace(
         source=FAKE_XML,
         activities=data_mod._cache["dataframe:activities"],
         transactions=data_mod._cache["dataframe:transactions"],
         sectors=data_mod._cache["dataframe:sectors"],
-        participating_orgs=(
-            data_mod._cache["dataframe:participating_orgs"]
-        ),
+        participating_orgs=(data_mod._cache["dataframe:participating_orgs"]),
     )
 
     data_mod._cache.clear()
